@@ -1,0 +1,55 @@
+/* ─── FitTrack Design Tokens ───────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg:       #080c14;
+  --bg2:      #0d1320;
+  --bg3:      #111827;
+  --surface:  #141c2e;
+  --surface2: #1a2440;
+
+  /* Borders */
+  --border:   rgba(255, 255, 255, 0.07);
+  --border2:  rgba(255, 255, 255, 0.12);
+
+  /* Text */
+  --text:     #f0f4ff;
+  --text2:    #8899bb;
+  --text3:    #4a5a7a;
+
+  /* Accent palette */
+  --accent:   #00e5ff;
+  --accent2:  #00b4cc;
+  --accent3:  rgba(0, 229, 255, 0.08);
+  --green:    #00ff9d;
+  --orange:   #ff7040;
+  --purple:   #b87aff;
+  --yellow:   #ffd060;
+  --red:      #ff4d6d;
+
+  /* Activity type colors */
+  --color-run:     var(--accent);
+  --color-ride:    var(--orange);
+  --color-walk:    var(--green);
+  --color-hike:    var(--purple);
+  --color-swim:    #4db8ff;
+  --color-workout: var(--yellow);
+
+  /* Radius */
+  --radius:   12px;
+  --radius2:  8px;
+  --radius3:  6px;
+
+  /* Typography */
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+
+  /* Shadows & glow */
+  --shadow:  0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow2: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --glow:    0 0 20px rgba(0, 229, 255, 0.15);
+
+  /* Transitions */
+  --t-fast:   0.12s ease;
+  --t-normal: 0.2s ease;
+  --t-slow:   0.35s ease;
+}
