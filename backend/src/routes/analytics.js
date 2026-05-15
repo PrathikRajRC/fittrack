@@ -7,17 +7,25 @@ import {
 
 const router = Router();
 
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 /**
- * Shared helper: fetch all activities (up to 500, paginated).
- * In production, cache this per user with Redis or DB.
+ * Fetch all activities with session-level caching.
+ * All three analytics endpoints share one Strava fetch per TTL window,
+ * cutting Strava API calls from up to 15 down to ~5 per 5 minutes.
  */
 async function fetchAllActivities(session) {
+  const now = Date.now();
+  if (session._actCache && now - session._actCache.ts < CACHE_TTL) {
+    return session._actCache.data;
+  }
   const all = [];
   for (let page = 1; page <= 5; page++) {
     const batch = await getActivities(session, { page, per_page: 100 });
     all.push(...batch);
     if (batch.length < 100) break;
   }
+  session._actCache = { data: all, ts: now };
   return all;
 }
 

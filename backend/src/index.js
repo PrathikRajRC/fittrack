@@ -64,7 +64,7 @@ app.use("/api/activities", requireAuth, activitiesRoutes);
 app.use("/api/analytics", requireAuth, analyticsRoutes);
 
 // ── 404 ──────────────────────────────────────────────────────────────────────
-app.use("*", (req, res) => {
+app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 

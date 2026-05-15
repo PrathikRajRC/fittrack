@@ -23,7 +23,13 @@ export default function ActivitiesPage({ onWorkoutClick }) {
     if (sort === "date")     ws.sort((a, b) => new Date(b.start_date_local) - new Date(a.start_date_local));
     if (sort === "distance") ws.sort((a, b) => b.distance - a.distance);
     if (sort === "duration") ws.sort((a, b) => b.moving_time - a.moving_time);
-    if (sort === "pace")     ws.sort((a, b) => calcPace(a) - calcPace(b));
+    if (sort === "pace")     ws.sort((a, b) => {
+      // Group by type so cycling speed and running pace don't mix
+      if (a.type !== b.type) return a.type.localeCompare(b.type);
+      const pa = calcPace(a) || Infinity;
+      const pb = calcPace(b) || Infinity;
+      return pa - pb;
+    });
     return ws;
   }, [activities, search, typeFilter, sort]);
 

@@ -23,7 +23,7 @@ export default function ProfilePage() {
 
   const runs     = activities.filter((a) => a.type === "Run" && a.distance > 0);
   const avgPace  = runs.length ? runs.reduce((s, a) => s + calcPace(a), 0) / runs.length : 0;
-  const longest  = activities.reduce((m, a) => a.distance > m.distance ? a : m, activities[0] || { distance: 0 });
+  const longest  = runs.reduce((m, a) => a.distance > m.distance ? a : m, runs[0] || { distance: 0 });
   const bestRun  = runs.reduce((m, a) => calcPace(a) < (m.p || 99) ? { ...a, p: calcPace(a) } : m, {});
   const typeCounts = {};
   activities.forEach((a) => { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; });
@@ -36,15 +36,24 @@ export default function ProfilePage() {
   });
   const consistencyScore = Math.min(100, Math.round(last30.length / 13 * 100));
 
-  const initials = athlete ? (athlete.firstname?.[0] || "") + (athlete.lastname?.[0] || "") : "PR";
-  const name     = athlete ? `${athlete.firstname} ${athlete.lastname || ""}`.trim() : "Athlete";
+  const initials  = athlete ? (athlete.firstname?.[0] || "") + (athlete.lastname?.[0] || "") : "PR";
+  const name      = athlete ? `${athlete.firstname} ${athlete.lastname || ""}`.trim() : "Athlete";
+  const avatarUrl = athlete?.profile || null;
   const location = [athlete?.city, athlete?.country].filter(Boolean).join(", ") || "Bengaluru, India";
 
   return (
     <div className="page-content">
       {/* Hero */}
       <div className="profile-hero fade-up">
-        <div className="profile-avatar">{initials}</div>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={name}
+            style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+          />
+        ) : (
+          <div className="profile-avatar">{initials}</div>
+        )}
         <div>
           <div className="profile-name">{name}</div>
           <div className="profile-sub">📍 {location}</div>
@@ -86,7 +95,7 @@ export default function ProfilePage() {
           <CardHeader title="Personal Records" />
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             {[
-              { label:"Longest Activity", val:`${(longest.distance/1000).toFixed(2)} km`, sub:longest.name || "—", icon:"📍" },
+              { label:"Longest Run", val: longest.distance ? `${(longest.distance/1000).toFixed(2)} km` : "—", sub:longest.name || "—", icon:"📍" },
               { label:"Best Run Pace",    val:fmtPace(bestRun.p, "Run"),                  sub:bestRun.name || "—",   icon:"⚡" },
               { label:"Avg Run Pace",     val:fmtPace(avgPace, "Run"),                    sub:`Over ${runs.length} runs`, icon:"🏃" },
             ].map((pr) => (
