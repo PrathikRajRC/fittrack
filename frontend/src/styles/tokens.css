@@ -53,3 +53,35 @@
   --t-normal: 0.2s ease;
   --t-slow:   0.35s ease;
 }
+
+/* ─── Light mode overrides ──────────────────────────────────────────────────── */
+body.light {
+  --bg:       #f0f4ff;
+  --bg2:      #e6ecf8;
+  --bg3:      #dde3f0;
+  --surface:  #ffffff;
+  --surface2: #f0f4ff;
+  --border:   rgba(0, 0, 0, 0.08);
+  --border2:  rgba(0, 0, 0, 0.14);
+  --text:     #0d1628;
+  --text2:    #4a5a7a;
+  --text3:    #8899bb;
+  --shadow:   0 4px 24px rgba(0, 0, 0, 0.10);
+  --shadow2:  0 2px 12px rgba(0, 0, 0, 0.06);
+  /* Darken accents so they're legible on white */
+  --accent:   #0082b4;
+  --accent2:  #006a94;
+  --accent3:  rgba(0, 130, 180, 0.10);
+  --green:    #008f52;
+  --orange:   #c94e28;
+  --purple:   #7234c4;
+  --yellow:   #a07800;
+  --red:      #c4263f;
+  --glow:     0 0 20px rgba(0, 130, 180, 0.12);
+  --color-run:     #0082b4;
+  --color-ride:    #c94e28;
+  --color-walk:    #008f52;
+  --color-hike:    #7234c4;
+  --color-swim:    #1a7ec8;
+  --color-workout: #a07800;
+}

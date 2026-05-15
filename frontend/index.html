@@ -8,6 +8,9 @@
     <title>FitTrack</title>
   </head>
   <body>
+    <script>
+      (function(){var t=localStorage.getItem("fittrack_theme");if(t==="light")document.body.classList.add("light");})();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -1,0 +1,24 @@
+import { createContext, useContext, useState, useEffect } from "react";
+
+const ThemeCtx = createContext(null);
+
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("fittrack_theme") || "dark"
+  );
+
+  useEffect(() => {
+    document.body.classList.toggle("light", theme === "light");
+    localStorage.setItem("fittrack_theme", theme);
+  }, [theme]);
+
+  const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
+  return (
+    <ThemeCtx.Provider value={{ theme, toggle }}>
+      {children}
+    </ThemeCtx.Provider>
+  );
+}
+
+export const useTheme = () => useContext(ThemeCtx);
