@@ -63,8 +63,3 @@ export function actIcon(type)  { return ACT_ICONS[type]     || "🏋️"; }
 export function actColor(type) { return ACT_COLORS[type]    || "#888"; }
 export function actClass(type) { return ACT_CSS_CLASS[type] || "type-workout"; }
 
-// ── Mock data generator (used when backend is unavailable) ───────────────────
-export function rng(seed) {
-  let s = seed;
-  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
-}

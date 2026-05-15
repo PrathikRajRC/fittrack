@@ -3,12 +3,6 @@ export default function ConnectPage() {
     window.location.href = "/api/auth/strava";
   };
 
-  const handleDemo = () => {
-    // Sets a flag so hooks use mock data instead of API calls
-    localStorage.setItem("fittrack_demo", "true");
-    window.location.href = "/dashboard";
-  };
-
   return (
     <div className="connect-page">
       <div className="connect-card fade-up">
@@ -22,17 +16,9 @@ export default function ConnectPage() {
         <button
           className="btn-primary"
           onClick={handleStravaConnect}
-          style={{ width: "100%", justifyContent: "center", marginBottom: 12 }}
+          style={{ width: "100%", justifyContent: "center" }}
         >
           🔗 Connect with Strava
-        </button>
-
-        <button
-          className="btn-secondary"
-          onClick={handleDemo}
-          style={{ width: "100%" }}
-        >
-          Use Demo Data
         </button>
 
         <div style={{ marginTop: 24, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { actColor, rng } from "../../utils/formatters.js";
+import { actColor } from "../../utils/formatters.js";
 
 // Decode a Google-encoded polyline string into [[lat, lng], ...] pairs
 function decodePolyline(str) {
@@ -31,7 +31,7 @@ function toSVGPoints(latlngs, W = 600, H = 300, pad = 36) {
   const offY = (H - spanLat * scale) / 2;
   return latlngs.map(([lat, lng]) => [
     Math.round(offX + (lng - minLng) * scale),
-    Math.round(offY + (maxLat - lat) * scale), // flip Y axis
+    Math.round(offY + (maxLat - lat) * scale),
   ]);
 }
 
@@ -49,43 +49,31 @@ function smoothPath(pts) {
   return d;
 }
 
-// Fallback: directional random-walk route for mock/no-polyline activities
-function mockPoints(seed) {
-  const r = rng(seed * 31);
-  let x = 120 + r() * 120, y = 80 + r() * 100;
-  let angle = r() * Math.PI * 2;
-  const result = [[Math.round(x), Math.round(y)]];
-  for (let i = 1; i < 60; i++) {
-    angle += (r() - 0.5) * 0.55;
-    const speed = 12 + r() * 9;
-    const nx = x + Math.cos(angle) * speed;
-    const ny = y + Math.sin(angle) * speed;
-    if (nx < 60 || nx > 540) angle = Math.PI - angle;
-    if (ny < 40 || ny > 260) angle = -angle;
-    x = Math.max(60, Math.min(540, nx));
-    y = Math.max(40, Math.min(260, ny));
-    result.push([Math.round(x), Math.round(y)]);
-  }
-  return result;
-}
-
 export default function RouteMap({ activity }) {
   const pts = useMemo(() => {
     const polyline = activity.map?.summary_polyline || activity.map?.polyline;
-    if (polyline) {
-      const decoded = decodePolyline(polyline);
-      return toSVGPoints(decoded);
-    }
-    return mockPoints(activity.id);
+    if (!polyline) return [];
+    return toSVGPoints(decodePolyline(polyline));
   }, [activity]);
 
   const d = useMemo(() => smoothPath(pts), [pts]);
 
+  // No real GPS data available — show an informative empty state
+  if (!pts.length) {
+    return (
+      <div
+        className="map-placeholder"
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 120 }}
+      >
+        <span style={{ fontSize: 28, opacity: 0.4 }}>🗺️</span>
+        <span style={{ fontSize: 12, color: "var(--text3)" }}>No GPS route data for this activity</span>
+      </div>
+    );
+  }
+
   const color = actColor(activity.type);
   const start = pts[0];
   const end   = pts[pts.length - 1];
-
-  if (!start) return null;
 
   return (
     <div className="map-placeholder">
@@ -110,22 +98,19 @@ export default function RouteMap({ activity }) {
           <line key={`h${i}`} x1="0" y1={i*100} x2="600" y2={i*100} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
         ))}
 
-        {/* Glow halo + route line */}
         <path d={d} fill="none" stroke={color} strokeWidth="8"   strokeOpacity="0.15" strokeLinecap="round" strokeLinejoin="round" />
         <path d={d} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#routeGlow)" />
 
-        {/* Start marker */}
         <circle cx={start[0]} cy={start[1]} r="7" fill={color} fillOpacity="0.25" />
         <circle cx={start[0]} cy={start[1]} r="4" fill={color} />
         <text x={start[0] + 10} y={start[1] + 4} fill={color} fontSize="10" fontWeight="700">START</text>
 
-        {/* End marker */}
         <circle cx={end[0]} cy={end[1]} r="7" fill="#fff" fillOpacity="0.15" />
         <circle cx={end[0]} cy={end[1]} r="4" fill="#fff" />
         <text x={end[0] + 10} y={end[1] + 4} fill="#fff" fontSize="10" fontWeight="700" opacity="0.6">END</text>
 
         <text x="16" y="288" fill="rgba(255,255,255,0.15)" fontSize="10">
-          {activity.map?.summary_polyline ? "FitTrack Route · " : "Preview · "}{activity.name}
+          FitTrack Route · {activity.name}
         </text>
       </svg>
     </div>

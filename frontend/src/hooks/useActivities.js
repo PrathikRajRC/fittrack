@@ -1,8 +1,5 @@
 import { useState, useEffect } from "react";
 import { activitiesApi } from "../services/api.js";
-import { MOCK_ACTIVITIES } from "../utils/mockData.js";
-
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 
 export function useActivities(params = {}) {
   const [activities, setActivities] = useState([]);
@@ -10,11 +7,6 @@ export function useActivities(params = {}) {
   const [error, setError]           = useState(null);
 
   useEffect(() => {
-    if (USE_MOCK) {
-      setActivities(MOCK_ACTIVITIES);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     activitiesApi.list(params)
       .then(({ data }) => setActivities(data))
@@ -32,13 +24,7 @@ export function useActivity(id) {
   const [error, setError]       = useState(null);
 
   useEffect(() => {
-    if (!id) return;
-    if (USE_MOCK) {
-      const found = MOCK_ACTIVITIES.find((a) => a.id === Number(id));
-      setActivity(found || null);
-      setLoading(false);
-      return;
-    }
+    if (!id) { setLoading(false); return; }
     setLoading(true);
     activitiesApi.getById(id)
       .then(({ data }) => setActivity(data))

@@ -21,17 +21,39 @@ export default function Dashboard({ onWorkoutClick }) {
   const { data: summary, loading: sLoading } = useAnalyticsSummary();
   const [typeFilter, setTypeFilter] = useState("All");
 
+  // Average pace across all runs
   const runs = activities.filter((a) => a.type === "Run");
   const avgPace = runs.length
     ? runs.reduce((s, a) => s + calcPace(a), 0) / runs.length
     : 0;
 
-  const runWeekly = useMemo(
-    () => groupByWeek(activities.filter((a) => a.type === "Run")).slice(-8),
-    [activities]
+  // Pace trend delta: compare 3 most-recent runs to 3 earlier ones
+  const paceDelta = useMemo(() => {
+    const sorted = [...runs].sort((a, b) => new Date(b.start_date_local) - new Date(a.start_date_local));
+    if (sorted.length < 6) return null;
+    const recentAvg = sorted.slice(0, 3).reduce((s, a) => s + calcPace(a), 0) / 3;
+    const olderAvg  = sorted.slice(3, 6).reduce((s, a)  => s + calcPace(a), 0) / 3;
+    return olderAvg - recentAvg; // positive = recent is faster = improving
+  }, [runs]);
+
+  const paceDeltaText = paceDelta === null  ? `${runs.length} run${runs.length !== 1 ? "s" : ""}`
+    : paceDelta > 0.05  ? "↑ improving"
+    : paceDelta < -0.05 ? "↓ slower"
+    : "→ steady";
+  const paceDeltaUp = paceDelta !== null && paceDelta > 0.05;
+
+  // Filtered subset for charts — respects typeFilter
+  const chartActivities = useMemo(
+    () => typeFilter === "All" ? activities : activities.filter((a) => a.type === typeFilter),
+    [activities, typeFilter]
   );
 
-  // Day-of-week bars for current week — runs only
+  const runWeekly = useMemo(
+    () => groupByWeek(chartActivities).slice(-8),
+    [chartActivities]
+  );
+
+  // Day-of-week bars for current week — follows typeFilter
   const dayBars = useMemo(() => {
     const today = new Date();
     const monday = new Date(today);
@@ -40,11 +62,19 @@ export default function Dashboard({ onWorkoutClick }) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dateStr = d.toISOString().slice(0, 10);
-      const acts = activities.filter(
-        (a) => a.type === "Run" && a.start_date_local.slice(0, 10) === dateStr
+      const acts = chartActivities.filter(
+        (a) => a.start_date_local.slice(0, 10) === dateStr
       );
       return { label, dist: acts.reduce((s, a) => s + a.distance / 1000, 0) };
     });
+  }, [chartActivities]);
+
+  // Dynamic weekly target: 10% above 4-week rolling average (rounded to nearest km, min 5)
+  const weeklyGoal = useMemo(() => {
+    const allWeeks = groupByWeek(activities).slice(-4);
+    if (!allWeeks.length) return 20;
+    const avg = allWeeks.reduce((s, w) => s + w.distance, 0) / allWeeks.length;
+    return Math.max(5, Math.round(avg * 1.1));
   }, [activities]);
 
   // Types present in the activity list (for filter chips)
@@ -75,9 +105,6 @@ export default function Dashboard({ onWorkoutClick }) {
         <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800 }}>
           {firstName} 👋
         </div>
-        <div style={{ fontSize: 13, color: "var(--text3)", marginTop: 4 }}>
-          Goal: <span style={{ color: "var(--accent)" }}>Sub-70 min 10K</span>
-        </div>
       </div>
 
       {/* Stat cards */}
@@ -85,14 +112,17 @@ export default function Dashboard({ onWorkoutClick }) {
         <StatCard icon="🏅" label="Total Activities" value={summary?.totalActivities ?? activities.length} color="cyan" delta="+this month" deltaUp />
         <StatCard icon="📍" label="Total Distance"   value={`${((summary?.totalDistance ?? 0)).toFixed(0)} km`} color="green" delta="km covered" />
         <StatCard icon="⏱️" label="Training Hours"  value={`${Math.round((summary?.totalMovingTime ?? 0) / 3600)}h`} color="orange" delta="total time" />
-        <StatCard icon="⚡" label="Avg Run Pace"     value={fmtPace(avgPace, "Run")} color="purple" delta="improving" deltaUp />
+        <StatCard icon="⚡" label="Avg Run Pace"     value={fmtPace(avgPace, "Run")} color="purple" delta={paceDeltaText} deltaUp={paceDeltaUp} />
       </div>
 
       {/* Charts row */}
       <div className="chart-wrap fade-up fade-up-2">
-        {/* Weekly running distance trend */}
+        {/* Weekly distance trend — updates with typeFilter */}
         <Card>
-          <CardHeader title="Running Distance" right={<Tag>Last 8 Weeks</Tag>} />
+          <CardHeader
+            title={typeFilter === "All" ? "Total Distance" : `${TYPE_ICONS[typeFilter] ?? ""} ${typeFilter} Distance`}
+            right={<Tag>Last 8 Weeks</Tag>}
+          />
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={runWeekly}>
               <defs>
@@ -104,13 +134,13 @@ export default function Dashboard({ onWorkoutClick }) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="week" tick={{ fill: "#4a5a7a", fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#4a5a7a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v} km`, "Run Distance"]} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v} km`, typeFilter === "All" ? "Distance" : `${typeFilter} Distance`]} />
               <Area type="monotone" dataKey="distance" stroke="#00e5ff" strokeWidth={2} fill="url(#distGrad)" dot={{ fill: "#00e5ff", r: 3 }} />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
 
-        {/* This week — runs only */}
+        {/* This week — follows typeFilter */}
         <Card>
           <CardHeader title="This Week" right={<Tag>{new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric" })}</Tag>} />
           <div className="weekly-bar-wrap">
@@ -128,12 +158,14 @@ export default function Dashboard({ onWorkoutClick }) {
           </div>
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--text3)" }}>Running goal: 21 km</span>
+              <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                Weekly target: {weeklyGoal} km
+              </span>
               <span style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600 }}>
                 {weekTotal.toFixed(1)} km
               </span>
             </div>
-            <ProgressBar value={weekTotal} max={21} />
+            <ProgressBar value={weekTotal} max={weeklyGoal} />
           </div>
         </Card>
       </div>

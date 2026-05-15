@@ -49,7 +49,6 @@ export default function Layout({ children, currentPage, onNavigate }) {
             {!collapsed && (
               <div className="avatar-info">
                 <div className="avatar-name">{name}</div>
-                <div className="avatar-sub">Pro Athlete</div>
               </div>
             )}
           </div>

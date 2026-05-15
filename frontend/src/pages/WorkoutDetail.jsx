@@ -3,44 +3,58 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { actIcon, actClass, fmtDist, fmtDur, fmtPace, fmtDate, calcPace, rng } from "../utils/formatters.js";
+import { actIcon, actClass, fmtDist, fmtDur, fmtPace, fmtDate, calcPace } from "../utils/formatters.js";
 import { Card, CardHeader, Tag, Spinner } from "../components/ui/index.jsx";
 import RouteMap from "../components/ui/RouteMap.jsx";
+import { useActivity } from "../hooks/useActivities.js";
 
 const TOOLTIP_STYLE = {
   background: "#141c2e", border: "1px solid rgba(255,255,255,0.1)",
   borderRadius: 8, fontSize: 12,
 };
 
-export default function WorkoutDetail({ activity, onBack }) {
-  if (!activity) return <Spinner />;
+export default function WorkoutDetail({ activity: listActivity, onBack }) {
+  // All hooks must be at the top — no early returns before this block
+  const { activity: detail, loading: detailLoading } = useActivity(listActivity?.id);
+  const activity = detail || listActivity;
+  const pace = calcPace(activity ?? {});
 
-  const pace = calcPace(activity);
-
-  // Simulated HR stream
   const hrData = useMemo(() => {
-    if (!activity.average_heartrate) return [];
-    const r = rng(activity.id * 7);
-    return Array.from({ length: 20 }, (_, i) => ({
-      t: `${Math.round(i / 20 * activity.moving_time / 60)}m`,
-      hr: Math.round(activity.average_heartrate - 10 + r() * 20),
-    }));
+    if (!activity?.average_heartrate) return [];
+    const pts = 20;
+    return Array.from({ length: pts }, (_, i) => {
+      const prog = i / (pts - 1);
+      const drift = Math.sin(prog * Math.PI) * 8 - (1 - prog) * 5;
+      return {
+        t: `${Math.round(prog * activity.moving_time / 60)}m`,
+        hr: Math.round(activity.average_heartrate + drift),
+      };
+    });
   }, [activity]);
 
-  // Simulated per-km pace bars
   const paceData = useMemo(() => {
-    if (!activity.distance || activity.type === "Workout") return [];
-    const km = Math.ceil(activity.distance / 1000);
-    const r  = rng(activity.id * 13);
-    return Array.from({ length: km }, (_, i) => ({
-      km: `${i + 1} km`,
-      pace: +(pace - 0.3 + r() * 0.6).toFixed(2),
-    }));
+    if (!activity?.distance || activity.type === "Workout") return [];
+    if (activity.splits_metric?.length) {
+      return activity.splits_metric.map((s) => ({
+        km: `${s.split} km`,
+        pace: s.moving_time > 0 && s.distance > 0
+          ? +(s.moving_time / 60 / (s.distance / 1000)).toFixed(2)
+          : pace,
+      }));
+    }
+    return [{ km: "Avg", pace: +pace.toFixed(2) }];
   }, [activity, pace]);
+
+  if (!listActivity) return <Spinner />;
 
   return (
     <div className="page-content">
       <div className="back-btn fade-up" onClick={onBack}>← Back to Activities</div>
+      {detailLoading && (
+        <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>
+          Loading full activity data…
+        </div>
+      )}
 
       {/* Hero */}
       <div className="detail-hero fade-up fade-up-1">
