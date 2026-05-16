@@ -10,12 +10,18 @@ import authRoutes from "./routes/auth.js";
 import athleteRoutes from "./routes/athlete.js";
 import activitiesRoutes from "./routes/activities.js";
 import analyticsRoutes from "./routes/analytics.js";
+import coachRoutes    from "./routes/coach.js";
+import goalsRoutes    from "./routes/goals.js";
+import webhookRoutes  from "./routes/webhooks.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 import { requireAuth } from "./middleware/requireAuth.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Trust Render/Netlify reverse proxy so req.secure works for secure cookies
+app.set("trust proxy", 1);
 
 // ── Security & logging ──────────────────────────────────────────────────────
 app.use(helmet());
@@ -58,10 +64,17 @@ app.get("/api/health", (req, res) => {
 });
 
 // ── Routes ───────────────────────────────────────────────────────────────────
+// Webhooks must be mounted BEFORE requireAuth — Strava's servers hit the
+// public GET/POST /api/webhooks/strava endpoints with no session cookie.
+// The protected routes inside webhooks.js apply requireAuth individually.
+app.use("/api/webhooks", webhookRoutes);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/athlete", requireAuth, athleteRoutes);
 app.use("/api/activities", requireAuth, activitiesRoutes);
 app.use("/api/analytics", requireAuth, analyticsRoutes);
+app.use("/api/coach",    requireAuth, coachRoutes);
+app.use("/api/goals",    requireAuth, goalsRoutes);
 
 // ── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

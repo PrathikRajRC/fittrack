@@ -1,41 +1,31 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { analyticsApi } from "../services/api.js";
 
+const STALE = 10 * 60 * 1000; // analytics are fresh for 10 minutes
+
 export function useAnalyticsTrends() {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    analyticsApi.trends()
-      .then(({ data: d }) => setData(d))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data, isPending: loading } = useQuery({
+    queryKey: ["analytics", "trends"],
+    queryFn:  () => analyticsApi.trends().then((r) => r.data),
+    staleTime: STALE,
+  });
   return { data, loading };
 }
 
 export function useAnalyticsSummary() {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    analyticsApi.summary()
-      .then(({ data: d }) => setData(d))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data, isPending: loading } = useQuery({
+    queryKey: ["analytics", "summary"],
+    queryFn:  () => analyticsApi.summary().then((r) => r.data),
+    staleTime: STALE,
+  });
   return { data, loading };
 }
 
 export function useInsights() {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    analyticsApi.insights()
-      .then(({ data: d }) => setData(d))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data, isPending: loading } = useQuery({
+    queryKey: ["analytics", "insights"],
+    queryFn:  () => analyticsApi.insights().then((r) => r.data),
+    staleTime: STALE,
+  });
   return { data, loading };
 }

@@ -1,0 +1,85 @@
+// FitTrack — Prisma schema
+//
+// Default: SQLite (zero-setup, works immediately)
+// Switch to PostgreSQL: change provider to "postgresql" and update DATABASE_URL
+// to: postgresql://user:password@localhost:5432/fittrack
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Athlete ───────────────────────────────────────────────────────────────────
+model Athlete {
+  id        Int      @id   // Strava athlete ID
+  data      String         // Full Strava athlete JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  token      AthleteToken?
+  activities Activity[]
+  goals      Goal[]
+  syncStatus SyncStatus?
+}
+
+// ── OAuth tokens (kept separate for security) ─────────────────────────────────
+model AthleteToken {
+  athleteId    Int      @id
+  accessToken  String
+  refreshToken String
+  expiresAt    Int      // Unix timestamp (seconds)
+  updatedAt    DateTime @updatedAt
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+}
+
+// ── Activity cache ────────────────────────────────────────────────────────────
+// Stores full Strava activity JSON so the app doesn't re-fetch on every page load.
+model Activity {
+  id        String   @id   // Strava activity ID (stored as string to avoid BigInt issues)
+  athleteId Int
+  startDate DateTime
+  type      String
+  data      String         // Full Strava activity JSON (stringified)
+  updatedAt DateTime @updatedAt
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, startDate(sort: Desc)])
+}
+
+// ── Sync bookkeeping ──────────────────────────────────────────────────────────
+model SyncStatus {
+  athleteId   Int      @id
+  lastSyncAt  DateTime @default(now())
+  totalSynced Int      @default(0)
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+}
+
+// ── Goals ─────────────────────────────────────────────────────────────────────
+model Goal {
+  id        Int      @id @default(autoincrement())
+  athleteId Int
+  type      String
+  label     String
+  target    Float
+  unit      String
+  createdAt DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId])
+}
+
+// ── Webhook subscription cache ────────────────────────────────────────────────
+model WebhookSubscription {
+  id          Int      @id   // Strava subscription ID
+  callbackUrl String
+  verifyToken String
+  createdAt   DateTime @default(now())
+}

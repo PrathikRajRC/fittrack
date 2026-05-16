@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getActivities } from "../services/stravaService.js";
+import { syncActivities, getActivitiesFromDB, hasActivities } from "../services/activitySync.js";
 import {
   groupByWeek, groupByMonth, typeDistribution,
   paceTrend, consistencyGrid, generateInsights, lifetimeSummary,
@@ -7,29 +7,27 @@ import {
 
 const router = Router();
 
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
 /**
- * Fetch all activities with session-level caching.
- * All three analytics endpoints share one Strava fetch per TTL window,
- * cutting Strava API calls from up to 15 down to ~5 per 5 minutes.
+ * Load up to 500 activities from the local DB cache.
+ * Triggers a background incremental sync if the cache is stale.
+ * Falls back to an empty array (never throws) so analytics degrade gracefully.
  */
 async function fetchAllActivities(session) {
-  const now = Date.now();
-  if (session._actCache && now - session._actCache.ts < CACHE_TTL) {
-    return session._actCache.data;
+  const athleteId = session.athlete.id;
+
+  if (await hasActivities(athleteId)) {
+    // Serve from DB instantly; sync stale data in background
+    syncActivities(session, athleteId).catch((e) =>
+      console.error("[analytics] background sync:", e.message)
+    );
+    return getActivitiesFromDB(athleteId, { per_page: 500 });
   }
-  const all = [];
-  for (let page = 1; page <= 5; page++) {
-    const batch = await getActivities(session, { page, per_page: 100 });
-    all.push(...batch);
-    if (batch.length < 100) break;
-  }
-  session._actCache = { data: all, ts: now };
-  return all;
+
+  // First load: sync synchronously
+  await syncActivities(session, athleteId);
+  return getActivitiesFromDB(athleteId, { per_page: 500 });
 }
 
-/** GET /api/analytics/summary — Lifetime aggregated stats */
 router.get("/summary", async (req, res, next) => {
   try {
     const activities = await fetchAllActivities(req.session);
@@ -39,30 +37,33 @@ router.get("/summary", async (req, res, next) => {
   }
 });
 
-/** GET /api/analytics/trends — Weekly + monthly trends */
 router.get("/trends", async (req, res, next) => {
   try {
     const activities = await fetchAllActivities(req.session);
     res.json({
-      weekly: groupByWeek(activities).slice(-12),
-      monthly: groupByMonth(activities).slice(-6),
+      weekly: groupByWeek(activities).slice(-12).map((w) => ({
+        label:    new Date(w.week).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        distance: parseFloat((w.totalDistance / 1000).toFixed(1)),
+        count:    w.count,
+      })),
+      monthly: groupByMonth(activities).slice(-6).map((m) => ({
+        label:    new Date(m.month + "-01").toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        distance: parseFloat((m.totalDistance / 1000).toFixed(1)),
+        count:    m.count,
+      })),
       typeDistribution: typeDistribution(activities),
-      paceTrend: paceTrend(activities, "Run"),
-      consistency: consistencyGrid(activities, 84),
+      paceTrend:        paceTrend(activities, "Run"),
+      consistency:      consistencyGrid(activities, 84),
     });
   } catch (err) {
     next(err);
   }
 });
 
-/** GET /api/analytics/insights — Smart auto-generated insights */
 router.get("/insights", async (req, res, next) => {
   try {
     const activities = await fetchAllActivities(req.session);
-    res.json({
-      insights: generateInsights(activities),
-      summary: lifetimeSummary(activities),
-    });
+    res.json({ insights: generateInsights(activities), summary: lifetimeSummary(activities) });
   } catch (err) {
     next(err);
   }

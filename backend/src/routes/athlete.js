@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAthlete, getAthleteStats } from "../services/stravaService.js";
+import { getAthlete, getAthleteStats, getAthleteGear } from "../services/stravaService.js";
 
 const router = Router();
 
@@ -18,6 +18,16 @@ router.get("/stats", async (req, res, next) => {
   try {
     const stats = await getAthleteStats(req.session, req.athlete.id);
     res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** GET /api/athlete/gear — Bikes and shoes with total distances */
+router.get("/gear", async (req, res, next) => {
+  try {
+    const gear = await getAthleteGear(req.session);
+    res.json(gear);
   } catch (err) {
     next(err);
   }

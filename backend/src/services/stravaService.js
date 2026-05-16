@@ -106,3 +106,18 @@ export async function getActivityStreams(session, id, keys = ["latlng", "heartra
 export async function getAthleteStats(session, athleteId) {
   return stravaRequest(session, `/athletes/${athleteId}/stats`);
 }
+
+/**
+ * Fetch laps for an activity.
+ */
+export async function getActivityLaps(session, id) {
+  return stravaRequest(session, `/activities/${id}/laps`);
+}
+
+/**
+ * Fetch athlete gear (bikes + shoes) from the athlete profile.
+ */
+export async function getAthleteGear(session) {
+  const athlete = await stravaRequest(session, "/athlete");
+  return { bikes: athlete.bikes || [], shoes: athlete.shoes || [] };
+}

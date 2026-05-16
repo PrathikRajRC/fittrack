@@ -1,14 +1,156 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
-import { useActivities } from "../hooks/useActivities.js";
+import { useActivities, useAthleteGear } from "../hooks/useActivities.js";
 import { useAnalyticsSummary } from "../hooks/useAnalytics.js";
 import { Card, CardHeader, Tag, ProgressBar, Spinner } from "../components/ui/index.jsx";
 import { fmtPace, fmtDateShort, calcPace } from "../utils/formatters.js";
+import { webhookApi } from "../services/api.js";
+
+const SHOE_MAX_KM = 700;
+const BIKE_MAX_KM = 10000;
+
+// ── Strava Webhook management panel ──────────────────────────────────────────
+function WebhookPanel() {
+  const [subscriptions, setSubscriptions] = useState(null);
+  const [status,        setStatus]        = useState("idle"); // idle | loading | subscribing | unsubscribing | error
+  const [errorMsg,      setErrorMsg]      = useState("");
+
+  const load = () => {
+    setStatus("loading");
+    webhookApi.getSubscription()
+      .then(({ data }) => { setSubscriptions(data.subscriptions ?? []); setStatus("idle"); })
+      .catch((err) => { setErrorMsg(err.response?.data?.error ?? "Failed to check subscription"); setStatus("error"); });
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const subscribe = async () => {
+    setStatus("subscribing");
+    setErrorMsg("");
+    try {
+      await webhookApi.subscribe();
+      load();
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error ?? "Subscription failed");
+      setStatus("error");
+    }
+  };
+
+  const unsubscribe = async (id) => {
+    setStatus("unsubscribing");
+    setErrorMsg("");
+    try {
+      await webhookApi.unsubscribe(id);
+      load();
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error ?? "Unsubscribe failed");
+      setStatus("error");
+    }
+  };
+
+  const active = subscriptions?.length > 0;
+  const sub    = subscriptions?.[0];
+  const busy   = status === "loading" || status === "subscribing" || status === "unsubscribing";
+
+  return (
+    <Card style={{ marginBottom: 24 }} className="fade-up fade-up-2">
+      <CardHeader
+        title="Strava Webhooks"
+        right={
+          <Tag style={{ color: active ? "var(--green)" : "var(--text3)" }}>
+            {status === "loading" ? "Checking…" : active ? "Active" : "Inactive"}
+          </Tag>
+        }
+      />
+
+      {/* Status row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: active ? 14 : 20 }}>
+        <div style={{ fontSize: 28 }}>{active ? "🟢" : "🔴"}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>
+            {active ? `Subscription active · ID ${sub.id}` : "No active subscription"}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>
+            {active
+              ? `Strava will push new activities to FitTrack automatically.`
+              : "Activities only sync when you manually refresh. Enable webhooks for real-time sync."}
+          </div>
+        </div>
+        {active ? (
+          <button
+            onClick={() => unsubscribe(sub.id)}
+            disabled={busy}
+            style={{
+              background: "none", border: "1px solid rgba(239,68,68,0.5)", borderRadius: 8,
+              color: "#ef4444", fontSize: 12, padding: "7px 16px", cursor: "pointer",
+              opacity: busy ? 0.5 : 1,
+            }}
+          >
+            Unsubscribe
+          </button>
+        ) : (
+          <button
+            onClick={subscribe}
+            disabled={busy}
+            style={{
+              background: "var(--accent)", border: "none", borderRadius: 8,
+              color: "#0d1320", fontSize: 12, fontWeight: 700, padding: "7px 16px", cursor: "pointer",
+              opacity: busy ? 0.5 : 1,
+            }}
+          >
+            {status === "subscribing" ? "Subscribing…" : "Subscribe"}
+          </button>
+        )}
+      </div>
+
+      {errorMsg && (
+        <div style={{ fontSize: 12, color: "#ef4444", background: "rgba(239,68,68,0.08)", borderRadius: 6, padding: "10px 14px", marginBottom: 14 }}>
+          ⚠️ {errorMsg}
+        </div>
+      )}
+
+      {/* Setup guide — shown when inactive or on error */}
+      {!active && (
+        <div style={{ background: "var(--bg2)", borderRadius: 8, padding: "14px 16px", fontSize: 12, lineHeight: 1.7 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>Setup guide (ngrok for local dev)</div>
+          {[
+            { n: 1, text: "Install ngrok: download from ngrok.com or run npm install -g ngrok" },
+            { n: 2, text: "Start a tunnel: ngrok http 3001" },
+            { n: 3, text: "Copy the HTTPS URL (e.g. https://abc123.ngrok-free.app)" },
+            { n: 4, text: "Add to backend/.env → STRAVA_WEBHOOK_CALLBACK_URL=https://abc123.ngrok-free.app/api/webhooks/strava" },
+            { n: 5, text: "Restart the backend server, then click Subscribe above" },
+          ].map(({ n, text }) => (
+            <div key={n} style={{ display: "flex", gap: 10, marginBottom: 4 }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: "50%", background: "var(--accent3)",
+                color: "var(--accent)", fontSize: 10, fontWeight: 800,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2,
+              }}>{n}</div>
+              <span style={{ color: "var(--text2)" }}>{text}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, fontSize: 11, color: "var(--text3)" }}>
+            Note: <code style={{ background: "var(--surface)", padding: "1px 5px", borderRadius: 3 }}>STRAVA_WEBHOOK_VERIFY_TOKEN</code> is already set in your .env (fittrack_webhook_secret_2026). Strava allows only one active subscription per app.
+          </div>
+        </div>
+      )}
+
+      {/* Active subscription details */}
+      {active && sub && (
+        <div style={{ fontSize: 11, color: "var(--text3)", display: "flex", gap: 20 }}>
+          <span>Callback: <code style={{ color: "var(--text2)" }}>{sub.callback_url}</code></span>
+          <span>Created: {new Date(sub.created_at).toLocaleDateString()}</span>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export default function ProfilePage() {
-  const { athlete }                        = useAuth();
-  const { activities, loading: aLoading }  = useActivities({ per_page: 100 });
+  const { athlete }                          = useAuth();
+  const { activities, loading: aLoading }    = useActivities({ per_page: 100 });
   const { data: summary, loading: sLoading } = useAnalyticsSummary();
+  const { gear }                             = useAthleteGear();
 
   const runs = useMemo(
     () => activities.filter((a) => a.type === "Run" && a.distance > 0),
@@ -76,6 +218,13 @@ export default function ProfilePage() {
     return result.slice(0, 5);
   }, [activities, runs, summary]);
 
+  const allGear = useMemo(() => {
+    if (!gear) return [];
+    const shoes = (gear.shoes || []).map((g) => ({ ...g, icon: "👟", maxKm: SHOE_MAX_KM }));
+    const bikes = (gear.bikes || []).map((g) => ({ ...g, icon: "🚴", maxKm: BIKE_MAX_KM }));
+    return [...bikes, ...shoes];
+  }, [gear]);
+
   // Member-since year from Strava athlete data
   const memberSince = athlete?.created_at
     ? new Date(athlete.created_at).getFullYear()
@@ -135,6 +284,48 @@ export default function ProfilePage() {
           </div>
         ))}
       </div>
+
+      {/* ── Gear Tracking ─────────────────────────────────────────────────── */}
+      {allGear.length > 0 && (
+        <Card style={{ marginBottom: 24 }} className="fade-up fade-up-2">
+          <CardHeader title="Gear Tracker" right={<Tag>{allGear.length} items</Tag>} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {allGear.map((g) => {
+              const km      = Math.round((g.distance || 0) / 1000);
+              const pct     = Math.min(100, Math.round((km / g.maxKm) * 100));
+              const warn    = pct >= 80;
+              const replace = pct >= 100;
+              return (
+                <div key={g.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 20 }}>{g.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {g.name}
+                        {g.primary && <span style={{ marginLeft: 6, fontSize: 10, background: "var(--accent)", color: "#0d1320", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>PRIMARY</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text3)" }}>
+                        {km.toLocaleString()} km / {g.maxKm.toLocaleString()} km recommended
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: replace ? "#ef4444" : warn ? "#f97316" : "var(--green)" }}>
+                      {replace ? "Replace soon" : warn ? `${100 - pct}% left` : `${pct}%`}
+                    </div>
+                  </div>
+                  <ProgressBar
+                    value={pct}
+                    max={100}
+                    color={replace ? "#ef4444" : warn ? "#f97316" : "var(--green)"}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* ── Strava Webhooks ──────────────────────────────────────────────── */}
+      <WebhookPanel />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }} className="fade-up fade-up-2">
         {/* Personal Records */}

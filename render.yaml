@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: fittrack-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
+    startCommand: node src/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false   # set in Render dashboard — PostgreSQL connection string from Neon/Render
+      - key: STRAVA_CLIENT_ID
+        sync: false
+      - key: STRAVA_CLIENT_SECRET
+        sync: false
+      - key: STRAVA_REDIRECT_URI
+        sync: false   # https://fittrack-api.onrender.com/api/auth/callback
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false   # https://your-app.netlify.app
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: STRAVA_WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: STRAVA_WEBHOOK_CALLBACK_URL
+        sync: false   # https://fittrack-api.onrender.com/api/webhooks/strava

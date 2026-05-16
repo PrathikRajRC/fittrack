@@ -7,6 +7,8 @@ const NAV = [
   { id: "activities", icon: "📋", label: "Activities",  hint: "A" },
   { id: "analytics",  icon: "📊", label: "Analytics",   hint: "N" },
   { id: "insights",   icon: "💡", label: "Insights",    hint: "I" },
+  { id: "goals",      icon: "🎯", label: "Goals",       hint: "G" },
+  { id: "coach",      icon: "🤖", label: "AI Coach",    hint: "C" },
   { id: "profile",    icon: "👤", label: "Profile",     hint: "P" },
 ];
 
@@ -90,7 +92,7 @@ export default function Layout({ children, currentPage, onNavigate }) {
           </button>
 
           <div className="topbar-title">
-            {NAV.find((n) => n.id === currentPage)?.label || "FitTrack"}
+            {NAV.find((n) => n.id === currentPage)?.label ?? "FitTrack"}
           </div>
 
           {/* Theme toggle */}

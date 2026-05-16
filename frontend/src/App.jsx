@@ -1,8 +1,22 @@
 import { useState, useEffect } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { ToastProvider, useToast } from "./context/ToastContext.jsx";
 import Layout from "./components/layout/Layout.jsx";
+
+// Created outside component to prevent re-instantiation on re-render
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime:           5 * 60 * 1000,  // data is fresh for 5 min by default
+      gcTime:              30 * 60 * 1000, // keep unused cache for 30 min
+      retry:               1,              // retry failed requests once
+      refetchOnWindowFocus: true,          // background refresh when user returns to tab
+    },
+  },
+});
 import ConnectPage     from "./pages/ConnectPage.jsx";
 import Dashboard       from "./pages/Dashboard.jsx";
 import ActivitiesPage  from "./pages/ActivitiesPage.jsx";
@@ -10,11 +24,38 @@ import WorkoutDetail   from "./pages/WorkoutDetail.jsx";
 import AnalyticsPage   from "./pages/AnalyticsPage.jsx";
 import InsightsPage    from "./pages/InsightsPage.jsx";
 import ProfilePage     from "./pages/ProfilePage.jsx";
+import CoachPage       from "./pages/CoachPage.jsx";
+import GoalsPage       from "./pages/GoalsPage.jsx";
 import OnboardingModal from "./components/ui/OnboardingModal.jsx";
+import { useWebhookEvents } from "./hooks/useWebhookEvents.js";
 import "./styles/components.css";
 
-const PAGE_KEYS = { d: "dashboard", a: "activities", n: "analytics", i: "insights", p: "profile" };
-const PAGE_LABELS = { dashboard: "Dashboard", activities: "Activities", analytics: "Analytics", insights: "Insights", profile: "Profile" };
+// Renders nothing — exists solely to run the webhook polling hook
+// inside the auth-confirmed tree (after the !athlete guard).
+function WebhookPoller() {
+  useWebhookEvents();
+  return null;
+}
+
+const PAGE_KEYS = {
+  d: "dashboard",
+  a: "activities",
+  n: "analytics",
+  i: "insights",
+  p: "profile",
+  c: "coach",
+  g: "goals",
+};
+
+const PAGE_LABELS = {
+  dashboard:  "Dashboard",
+  activities: "Activities",
+  analytics:  "Analytics",
+  insights:   "Insights",
+  profile:    "Profile",
+  coach:      "AI Coach",
+  goals:      "Goals",
+};
 
 const SHORTCUTS = [
   { key: "D", label: "Dashboard" },
@@ -22,8 +63,10 @@ const SHORTCUTS = [
   { key: "N", label: "Analytics" },
   { key: "I", label: "Insights" },
   { key: "P", label: "Profile" },
+  { key: "C", label: "AI Coach" },
+  { key: "G", label: "Goals" },
   { key: "Esc", label: "Back / close" },
-  { key: "?", label: "Show shortcuts" },
+  { key: "?",   label: "Show shortcuts" },
 ];
 
 function ShortcutsPanel({ onClose }) {
@@ -47,12 +90,10 @@ function AppInner() {
   const [page, setPage]               = useState("dashboard");
   const [selectedActivity, setSelect] = useState(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showShortcuts, setShowShortcuts]   = useState(false);
+  const [showShortcuts,  setShowShortcuts]  = useState(false);
 
-  // Show onboarding on first login
   useEffect(() => {
     if (athlete && !localStorage.getItem("fittrack_onboarded")) {
-      // small delay so the dashboard loads first
       const t = setTimeout(() => setShowOnboarding(true), 600);
       return () => clearTimeout(t);
     }
@@ -63,7 +104,6 @@ function AppInner() {
     setShowOnboarding(false);
   };
 
-  // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
       const tag = e.target.tagName;
@@ -71,12 +111,9 @@ function AppInner() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!athlete) return;
 
-      if (e.key === "?") {
-        setShowShortcuts((v) => !v);
-        return;
-      }
+      if (e.key === "?") { setShowShortcuts((v) => !v); return; }
       if (e.key === "Escape") {
-        if (showShortcuts) { setShowShortcuts(false); return; }
+        if (showShortcuts)  { setShowShortcuts(false); return; }
         if (showOnboarding) { handleOnboardingDone(); return; }
         if (page === "detail") { setSelect(null); setPage("activities"); }
         return;
@@ -102,25 +139,15 @@ function AppInner() {
 
   if (!athlete) return <ConnectPage />;
 
-  const handleWorkoutClick = (activity) => {
-    setSelect(activity);
-    setPage("detail");
-  };
-
-  const handleBack = () => {
-    setSelect(null);
-    setPage("activities");
-  };
-
-  const navigate = (id) => {
-    setPage(id);
-    setSelect(null);
-  };
+  const handleWorkoutClick = (activity) => { setSelect(activity); setPage("detail"); };
+  const handleBack         = () => { setSelect(null); setPage("activities"); };
+  const navigate           = (id) => { setPage(id); setSelect(null); };
 
   const currentPage = page === "detail" ? "activities" : page;
 
   return (
     <>
+      <WebhookPoller />
       <Layout currentPage={currentPage} onNavigate={navigate}>
         {page === "dashboard"  && <Dashboard      onWorkoutClick={handleWorkoutClick} />}
         {page === "activities" && <ActivitiesPage onWorkoutClick={handleWorkoutClick} />}
@@ -128,6 +155,8 @@ function AppInner() {
         {page === "analytics"  && <AnalyticsPage />}
         {page === "insights"   && <InsightsPage />}
         {page === "profile"    && <ProfilePage />}
+        {page === "coach"      && <CoachPage />}
+        {page === "goals"      && <GoalsPage />}
       </Layout>
 
       {showOnboarding && <OnboardingModal onDone={handleOnboardingDone} />}
@@ -138,12 +167,18 @@ function AppInner() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <AppInner />
-        </ToastProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <AppInner />
+          </ToastProvider>
+        </AuthProvider>
+      </ThemeProvider>
+      {/* Dev-only query inspector — hidden in production builds */}
+      {import.meta.env.DEV && (
+        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+      )}
+    </QueryClientProvider>
   );
 }
