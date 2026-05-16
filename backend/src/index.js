@@ -45,6 +45,9 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,
+    // "none" required so Netlify (frontend) can send the cookie to Render (API)
+    // on cross-origin requests. Must be paired with secure:true.
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
   },
 }));
