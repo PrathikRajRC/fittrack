@@ -1,6 +1,7 @@
 export default function ConnectPage() {
   const handleStravaConnect = () => {
-    window.location.href = "/api/auth/strava";
+    const base = import.meta.env.VITE_API_BASE_URL || "/api";
+    window.location.href = `${base}/auth/strava`;
   };
 
   return (
