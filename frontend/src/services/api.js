@@ -5,12 +5,13 @@ export const api = axios.create({
   withCredentials: true, // send session cookie
 });
 
-// Response interceptor — redirect to home on 401
+// Response interceptor — redirect to home on 401 (only for real sessions, not import mode)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      window.location.href = "/";
+      const isImport = !!localStorage.getItem("runlytics_import_athlete");
+      if (!isImport) window.location.href = "/";
     }
     return Promise.reject(err);
   }
@@ -48,6 +49,12 @@ export const goalsApi = {
   list:   ()   => api.get("/goals"),
   create: (g)  => api.post("/goals", g),
   delete: (id) => api.delete(`/goals/${id}`),
+};
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+export const authApi = {
+  logout:     () => api.post("/auth/logout"),
+  deleteData: () => api.delete("/auth/data"),
 };
 
 // ── Webhooks ──────────────────────────────────────────────────────────────────

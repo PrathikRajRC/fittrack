@@ -1,7 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { actColor } from "../../utils/formatters.js";
+
+const REPLAY_FRAMES = 150;
+const REPLAY_MS     = 8000;
+
+function samplePts(arr, n) {
+  if (!arr || arr.length <= n) return arr || [];
+  const step = arr.length / n;
+  return Array.from({ length: n }, (_, i) => arr[Math.round(i * step)]);
+}
 
 const TILES = {
   dark: {
@@ -37,13 +46,36 @@ function decodePolyline(str) {
 }
 
 export default function RouteMap({ activity }) {
-  const [tileKey, setTileKey] = useState("dark");
+  const [tileKey,    setTileKey]    = useState("dark");
+  const [isPlaying,  setIsPlaying]  = useState(false);
+  const [replayIdx,  setReplayIdx]  = useState(null);
+  const intervalRef = useRef(null);
 
   const latlngs = useMemo(() => {
     const poly = activity.map?.summary_polyline || activity.map?.polyline;
     if (!poly) return [];
     return decodePolyline(poly);
   }, [activity]);
+
+  const replayPts = useMemo(() => samplePts(latlngs, REPLAY_FRAMES), [latlngs]);
+
+  useEffect(() => {
+    if (!isPlaying || replayPts.length === 0) return;
+    const delay = Math.max(30, Math.floor(REPLAY_MS / replayPts.length));
+    intervalRef.current = setInterval(() => {
+      setReplayIdx((prev) => {
+        const next = (prev === null ? 0 : prev + 1);
+        if (next >= replayPts.length - 1) { setIsPlaying(false); return replayPts.length - 1; }
+        return next;
+      });
+    }, delay);
+    return () => clearInterval(intervalRef.current);
+  }, [isPlaying, replayPts]);
+
+  const handlePlay = () => {
+    if (replayIdx !== null && replayIdx >= replayPts.length - 1) setReplayIdx(0);
+    setIsPlaying(true);
+  };
 
   if (!latlngs.length) {
     return (
@@ -98,7 +130,38 @@ export default function RouteMap({ activity }) {
             <span style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>END</span>
           </Tooltip>
         </CircleMarker>
+        {replayIdx !== null && (
+          <CircleMarker
+            center={replayPts[replayIdx]}
+            radius={9}
+            pathOptions={{ color: "#fff", fillColor: color, fillOpacity: 1, weight: 3 }}
+          />
+        )}
       </MapContainer>
+
+      {/* Replay controls */}
+      <div style={{ position: "absolute", bottom: 10, left: 10, zIndex: 1000, display: "flex", gap: 4 }}>
+        <button
+          onClick={isPlaying ? () => setIsPlaying(false) : handlePlay}
+          style={{
+            padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none",
+            borderRadius: 6, background: "var(--accent)", color: "#0d1320",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.4)", letterSpacing: 0.4,
+          }}
+        >
+          {isPlaying ? "⏸ Pause" : replayIdx === null ? "▶ Replay" : "▶ Resume"}
+        </button>
+        {replayIdx !== null && !isPlaying && (
+          <button
+            onClick={() => { setIsPlaying(false); setReplayIdx(null); }}
+            style={{
+              padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none",
+              borderRadius: 6, background: "rgba(20,24,36,0.85)", color: "rgba(255,255,255,0.75)",
+              backdropFilter: "blur(6px)", boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+            }}
+          >↺</button>
+        )}
+      </div>
 
       {/* Tile toggle — sits above the map (z-index 1000 matches Leaflet controls) */}
       <div style={{

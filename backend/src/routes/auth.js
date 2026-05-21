@@ -20,8 +20,17 @@ router.get("/callback", async (req, res, next) => {
       return res.status(403).json({ error: "State mismatch — possible CSRF attempt" });
     }
 
-    const tokenData = await exchangeCode(code);
-    const athlete   = tokenData.athlete;
+    let tokenData;
+    try {
+      tokenData = await exchangeCode(code);
+    } catch (stravaErr) {
+      // Strava 403 = athlete limit exceeded — redirect to coming soon page
+      if (stravaErr.response?.status === 403) {
+        return res.redirect(`${process.env.FRONTEND_URL}/?comingsoon=1`);
+      }
+      throw stravaErr;
+    }
+    const athlete = tokenData.athlete;
 
     // ── Persist athlete + tokens to DB ────────────────────────────────────────
     await prisma.athlete.upsert({
@@ -84,6 +93,23 @@ router.post("/logout", (req, res) => {
     res.clearCookie("connect.sid");
     res.json({ success: true });
   });
+});
+
+// Delete all athlete data (GDPR-style "right to erasure")
+// Cascades via Prisma: AthleteToken, Activity, SyncStatus, Goal all deleted too
+router.delete("/data", async (req, res, next) => {
+  try {
+    const athleteId = req.session?.athlete?.id;
+    if (athleteId) {
+      await prisma.athlete.delete({ where: { id: athleteId } }).catch(() => {});
+    }
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.json({ success: true, message: "All data deleted." });
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

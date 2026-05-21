@@ -1,4 +1,4 @@
-# FitTrack — Roadmap & Future Ideas
+# Runlytics — Roadmap & Future Ideas
 
 ## 🟢 Phase 1 — Foundation (Complete)
 - [x] Strava OAuth 2.0 integration
@@ -26,15 +26,15 @@
 
 ## 🟢 Phase 3 — Intelligence Layer (In Progress)
 - [x] **AI Fitness Coach** (Claude API) — conversational coach that reads your Strava data and gives personalised advice (claude-sonnet-4-6, coach.js backend, CoachPage.jsx chat UI)
-- [ ] **VO2 Max estimation** — calculated from pace + HR data using standard formulas
-- [ ] **Training load score** — TRIMP or similar weekly training stress metric
+- [x] **VO2 Max estimation** — Daniels' VDOT formula from pace+duration; shown on Insights page with category badge
+- [x] **Training load score** — simplified TRIMP (dMin × (HR/maxHR)² × 100); 8-week bar chart on Insights page
 - [ ] **Race readiness scoring** — model readiness for a target race distance/date
-- [ ] **Fatigue detection** — flag overtraining signals (elevated resting HR trend, pace regression)
-- [ ] **Injury risk prediction** — flag sharp weekly mileage spikes (>10% rule violation)
+- [x] **Fatigue detection** — pace regression across recent vs older runs; alert banner on Insights page
+- [x] **Injury risk prediction** — 10% weekly mileage rule; alert banner on Insights page
 - [ ] **Adaptive training plans** — auto-adjust 8-week plan based on completed workouts
 - [ ] **Natural language query** — "Show me my best 5K pace this year"
-- [ ] **HR zone personalisation** — let user input their actual max HR or lactate threshold HR
-- [ ] **Weekly zone distribution chart** — show time in each HR zone across the week
+- [x] **HR zone personalisation** — max HR setting in Profile page, stored in localStorage, used by all performance algorithms
+- [x] **Weekly zone distribution chart** — Z1–Z5 horizontal bar chart on Insights page, approximated from avg HR per activity
 
 ---
 
@@ -83,11 +83,11 @@
 - [x] **Notification system** — in-app toasts for sync status, new PRs
 - [x] **Date range picker** — filter all views to custom date ranges
 - [x] **Export to CSV** — download your training data
-- [ ] **Activity heatmap calendar** — GitHub-style heatmap on profile showing active days
-- [ ] **Export to PDF** — printable training summaries
+- [x] **Activity heatmap calendar** — GitHub-style heatmap on profile showing active days
+- [x] **Export to PDF** — printable training summaries (Print Summary button on workout detail, print CSS hides chrome)
 - [x] **Map style toggle** — switch between dark/light/satellite tile layers
-- [ ] **Lap detail modal** — click a lap/split row to see that lap's HR + pace chart
-- [ ] **Animated route replay** — animate a dot along the GPS route at workout pace
+- [x] **Lap detail modal** — click a lap/split row to see that lap's HR + pace chart
+- [x] **Animated route replay** — animate a dot along the GPS route at workout pace
 
 ---
 

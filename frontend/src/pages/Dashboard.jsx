@@ -7,6 +7,14 @@ import { StatCard, Card, CardHeader, Tag, FilterChip, ProgressBar, Spinner, Empt
 import WorkoutCard from "../components/ui/WorkoutCard.jsx";
 import { fmtDur, fmtPace, calcPace } from "../utils/formatters.js";
 import { groupByWeek } from "../utils/analytics.js";
+import { currentStreak } from "../utils/performance.js";
+
+function timeGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 const TOOLTIP_STYLE = {
   background: "#141c2e", border: "1px solid rgba(255,255,255,0.1)",
@@ -94,17 +102,56 @@ export default function Dashboard({ onWorkoutClick }) {
   const maxDayDist = Math.max(...dayBars.map((d) => d.dist), 1);
   const weekTotal  = dayBars.reduce((s, d) => s + d.dist, 0);
   const firstName  = athlete?.firstname || "Athlete";
+  const streak     = useMemo(() => currentStreak(activities), [activities]);
 
   if (aLoading || sLoading) return <Spinner />;
+
+  if (!aLoading && activities.length === 0) {
+    const base = import.meta.env.VITE_API_BASE_URL || "/api";
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "70vh", padding: 40, textAlign: "center" }}>
+        <div style={{ fontSize: 72, marginBottom: 24, opacity: 0.8 }}>🏃</div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800, marginBottom: 12 }}>
+          No activities yet
+        </div>
+        <div style={{ fontSize: 15, color: "var(--text2)", maxWidth: 420, lineHeight: 1.7, marginBottom: 32 }}>
+          Your Strava activities will appear here automatically. Make sure you have activities
+          logged on Strava, then refresh — or complete a workout and it will sync via webhook.
+        </div>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <button className="btn-primary" onClick={() => window.location.reload()}>
+            Refresh Dashboard
+          </button>
+          <a href={`${base}/auth/strava`} className="btn-secondary" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 99 }}>
+            Reconnect Strava
+          </a>
+        </div>
+        <div style={{ marginTop: 40, fontSize: 12, color: "var(--text3)" }}>
+          Tip: Strava activities may take a few minutes to sync after your workout.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content">
       {/* Welcome */}
-      <div className="fade-up" style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, color: "var(--text3)", marginBottom: 4 }}>Good morning,</div>
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800 }}>
-          {firstName} 👋
+      <div className="fade-up" style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, color: "var(--text3)", marginBottom: 4 }}>{timeGreeting()},</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800 }}>
+            {firstName} 👋
+          </div>
         </div>
+        {streak > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,176,32,0.12)", border: "1px solid rgba(255,176,32,0.3)", borderRadius: 12, padding: "10px 16px" }}>
+            <span style={{ fontSize: 22 }}>🔥</span>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#ffb020", lineHeight: 1 }}>{streak} day{streak !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,176,32,0.7)" }}>Streak</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stat cards */}

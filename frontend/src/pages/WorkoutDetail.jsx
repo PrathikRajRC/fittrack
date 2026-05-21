@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -7,6 +7,7 @@ import { actIcon, actClass, fmtDist, fmtDur, fmtPace, fmtDate, calcPace } from "
 import { Card, CardHeader, Tag, Spinner } from "../components/ui/index.jsx";
 import RouteMap from "../components/ui/RouteMap.jsx";
 import { useActivity, useActivityStreams } from "../hooks/useActivities.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const TOOLTIP_STYLE = {
   background: "#141c2e", border: "1px solid rgba(255,255,255,0.1)",
@@ -50,10 +51,89 @@ function calcHRZones(hrData) {
   }));
 }
 
-// Non-GPS activity types that have no route
 const NO_MAP_TYPES = new Set(["Workout", "Swim", "WeightTraining", "Yoga", "Crossfit", "Elliptical", "StairStepper"]);
 
+function LapModal({ split, splitIdx, splits, streams, activity, onClose }) {
+  const hrRaw   = streams?.heartrate?.data;
+  const timeRaw = streams?.time?.data;
+
+  const splitPace = split.moving_time > 0 && split.distance > 0
+    ? split.moving_time / 60 / (split.distance / 1000) : 0;
+
+  const splitHrData = useMemo(() => {
+    if (!hrRaw?.length || !timeRaw?.length) return [];
+    const startSec = splits.slice(0, splitIdx).reduce((s, sp) => s + sp.elapsed_time, 0);
+    const endSec   = startSec + split.elapsed_time;
+    const pts = [];
+    timeRaw.forEach((t, i) => {
+      if (t >= startSec && t <= endSec && hrRaw[i] != null)
+        pts.push({ t: `${Math.round(t - startSec)}s`, hr: Math.round(hrRaw[i]) });
+    });
+    if (pts.length > 60) {
+      const step = pts.length / 60;
+      return Array.from({ length: 60 }, (_, i) => pts[Math.round(i * step)]);
+    }
+    return pts;
+  }, [hrRaw, timeRaw, splits, splitIdx, split]);
+
+  const stats = [
+    { label: "Distance",  val: `${(split.distance / 1000).toFixed(2)} km`,   color: "var(--accent)" },
+    { label: "Time",      val: fmtDur(split.elapsed_time),                    color: "var(--text1)" },
+    { label: "Pace",      val: splitPace > 0 ? fmtPace(splitPace, activity.type) : "—", color: "var(--green)" },
+    { label: "Elevation", val: split.elevation_difference != null
+        ? `${split.elevation_difference > 0 ? "+" : ""}${Math.round(split.elevation_difference)}m`
+        : "—",
+      color: split.elevation_difference > 0 ? "var(--orange)" : "var(--green)" },
+    ...(split.average_heartrate ? [{ label: "Avg HR", val: `${Math.round(split.average_heartrate)} bpm`, color: "#ff4d6d" }] : []),
+    ...(split.max_heartrate     ? [{ label: "Max HR", val: `${Math.round(split.max_heartrate)} bpm`,     color: "#ff4d6d" }] : []),
+  ];
+
+  return (
+    <div className="onboarding-overlay" onClick={onClose}>
+      <div className="lap-modal" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800 }}>Split {split.split}</div>
+            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>Click outside or press Esc to close</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer", fontSize: 22, lineHeight: 1, padding: 4 }}>×</button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: splitHrData.length > 2 ? 20 : 0 }}>
+          {stats.map((s) => (
+            <div key={s.label} style={{ background: "var(--bg2)", borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>{s.label}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 800, color: s.color }}>{s.val}</div>
+            </div>
+          ))}
+        </div>
+
+        {splitHrData.length > 2 && (
+          <>
+            <div style={{ fontSize: 10, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>Heart Rate</div>
+            <ResponsiveContainer width="100%" height={110}>
+              <AreaChart data={splitHrData}>
+                <defs>
+                  <linearGradient id="lapHrGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#ff4d6d" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#ff4d6d" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="t" tick={{ fill: "#4a5a7a", fontSize: 10 }} axisLine={false} tickLine={false} interval={Math.ceil(splitHrData.length / 6)} />
+                <YAxis tick={{ fill: "#4a5a7a", fontSize: 10 }} axisLine={false} tickLine={false} domain={["dataMin - 5", "dataMax + 5"]} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v} bpm`, "HR"]} />
+                <Area type="monotone" dataKey="hr" stroke="#ff4d6d" strokeWidth={2} fill="url(#lapHrGrad)" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function WorkoutDetail({ activity: listActivity, onBack }) {
+  const { isImportMode } = useAuth();
   const { activity: detail, loading: detailLoading } = useActivity(listActivity?.id);
   const { streams }                                   = useActivityStreams(listActivity?.id);
   const activity = detail || listActivity;
@@ -138,18 +218,30 @@ export default function WorkoutDetail({ activity: listActivity, onBack }) {
   // ── HR zones ──────────────────────────────────────────────────────────────
   const hrZones = useMemo(() => calcHRZones(hrRaw), [hrRaw]);
 
-  // ── Splits table ──────────────────────────────────────────────────────────
-  const splits = activity?.splits_metric || [];
-
-  // ── Segment efforts ───────────────────────────────────────────────────────
+  const splits   = activity?.splits_metric || [];
   const segments = activity?.segment_efforts || [];
+  const [selectedSplit, setSelectedSplit] = useState(null);
 
   if (!listActivity) return <Spinner />;
 
   return (
     <div className="page-content">
-      <div className="back-btn fade-up" onClick={onBack}>← Back to Activities</div>
-      {detailLoading && (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }} className="fade-up print-hide">
+        <div className="back-btn" style={{ margin: 0 }} onClick={onBack}>← Back to Activities</div>
+        <button
+          onClick={() => window.print()}
+          style={{ background: "none", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "var(--text2)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+        >
+          ⎙ Print Summary
+        </button>
+      </div>
+      {isImportMode && (
+        <div style={{ fontSize: 12, color: "var(--text3)", background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>📁</span>
+          <span>Imported data — route map, elevation profile, and lap splits are not available in the Strava export.</span>
+        </div>
+      )}
+      {!isImportMode && detailLoading && (
         <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>
           Loading full activity data…
         </div>
@@ -387,7 +479,7 @@ export default function WorkoutDetail({ activity: listActivity, onBack }) {
       {/* ── Splits Table ──────────────────────────────────────────────────── */}
       {splits.length > 1 && (
         <Card className="fade-up fade-up-3" style={{ marginBottom: 20 }}>
-          <CardHeader title="Splits" right={<Tag>{splits.length} km</Tag>} />
+          <CardHeader title="Splits" right={<Tag>{splits.length} km · click for detail</Tag>} />
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
@@ -410,7 +502,13 @@ export default function WorkoutDetail({ activity: listActivity, onBack }) {
                   }, 0) / splits.length;
                   const isFast = splitPace > 0 && splitPace < avgSplitPace;
                   return (
-                    <tr key={idx} style={{ borderBottom: "1px solid var(--border)", opacity: 0.9 }}>
+                    <tr
+                      key={idx}
+                      onClick={() => setSelectedSplit({ split: s, idx })}
+                      style={{ borderBottom: "1px solid var(--border)", opacity: 0.9, cursor: "pointer", transition: "background 0.15s" }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = "var(--surface)"; }}
+                      onMouseOut={(e)  => { e.currentTarget.style.background = ""; }}
+                    >
                       <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>
                         {s.split}
                       </td>
@@ -433,6 +531,17 @@ export default function WorkoutDetail({ activity: listActivity, onBack }) {
             </table>
           </div>
         </Card>
+      )}
+
+      {selectedSplit && (
+        <LapModal
+          split={selectedSplit.split}
+          splitIdx={selectedSplit.idx}
+          splits={splits}
+          streams={streams}
+          activity={activity}
+          onClose={() => setSelectedSplit(null)}
+        />
       )}
 
       {/* ── Segment Efforts ───────────────────────────────────────────────── */}

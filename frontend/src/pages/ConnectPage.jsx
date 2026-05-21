@@ -7,8 +7,7 @@ export default function ConnectPage() {
   return (
     <div className="connect-page">
       <div className="connect-card fade-up">
-        <div className="connect-logo">⚡</div>
-        <div className="connect-title">Runlytics</div>
+        <img src="/logo.png" alt="Runlytics" className="connect-logo-img" />
         <div className="connect-sub">
           Your personal fitness intelligence platform. Connect your training data
           and unlock deep performance insights.

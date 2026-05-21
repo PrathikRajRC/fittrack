@@ -6,67 +6,62 @@ import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { ToastProvider, useToast } from "./context/ToastContext.jsx";
 import Layout from "./components/layout/Layout.jsx";
 
-// Created outside component to prevent re-instantiation on re-render
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime:           5 * 60 * 1000,  // data is fresh for 5 min by default
-      gcTime:              30 * 60 * 1000, // keep unused cache for 30 min
-      retry:               1,              // retry failed requests once
-      refetchOnWindowFocus: true,          // background refresh when user returns to tab
+      staleTime:            5 * 60 * 1000,
+      gcTime:               30 * 60 * 1000,
+      retry:                1,
+      refetchOnWindowFocus: true,
     },
   },
 });
-import ConnectPage     from "./pages/ConnectPage.jsx";
-import Dashboard       from "./pages/Dashboard.jsx";
-import ActivitiesPage  from "./pages/ActivitiesPage.jsx";
-import WorkoutDetail   from "./pages/WorkoutDetail.jsx";
-import AnalyticsPage   from "./pages/AnalyticsPage.jsx";
-import InsightsPage    from "./pages/InsightsPage.jsx";
-import ProfilePage     from "./pages/ProfilePage.jsx";
-import CoachPage       from "./pages/CoachPage.jsx";
-import GoalsPage       from "./pages/GoalsPage.jsx";
+
+import LandingPage    from "./pages/LandingPage.jsx";
+import PrivacyPage    from "./pages/PrivacyPage.jsx";
+import TermsPage      from "./pages/TermsPage.jsx";
+import ContactPage    from "./pages/ContactPage.jsx";
+import ImportPage     from "./pages/ImportPage.jsx";
+import ComingSoonPage from "./pages/ComingSoonPage.jsx";
+import Dashboard      from "./pages/Dashboard.jsx";
+import ActivitiesPage from "./pages/ActivitiesPage.jsx";
+import WorkoutDetail  from "./pages/WorkoutDetail.jsx";
+import AnalyticsPage  from "./pages/AnalyticsPage.jsx";
+import InsightsPage   from "./pages/InsightsPage.jsx";
+import ProfilePage    from "./pages/ProfilePage.jsx";
+import CoachPage      from "./pages/CoachPage.jsx";
+import GoalsPage      from "./pages/GoalsPage.jsx";
 import OnboardingModal from "./components/ui/OnboardingModal.jsx";
 import { useWebhookEvents } from "./hooks/useWebhookEvents.js";
 import "./styles/components.css";
 
-// Renders nothing — exists solely to run the webhook polling hook
-// inside the auth-confirmed tree (after the !athlete guard).
 function WebhookPoller() {
-  useWebhookEvents();
+  const { isImportMode } = useAuth();
+  useWebhookEvents(!isImportMode);
   return null;
 }
 
-const PAGE_KEYS = {
-  d: "dashboard",
-  a: "activities",
-  n: "analytics",
-  i: "insights",
-  p: "profile",
-  c: "coach",
-  g: "goals",
-};
+// Pages accessible without auth (no sidebar)
+const LEGAL_PAGES = ["privacy", "terms", "contact"];
 
-const PAGE_LABELS = {
-  dashboard:  "Dashboard",
-  activities: "Activities",
-  analytics:  "Analytics",
-  insights:   "Insights",
-  profile:    "Profile",
-  coach:      "AI Coach",
-  goals:      "Goals",
-};
+function getInitialPage() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("comingsoon")) {
+    window.history.replaceState({}, "", "/");
+    return "comingsoon";
+  }
+  const path = window.location.pathname.replace(/^\//, "") || "home";
+  if (LEGAL_PAGES.includes(path)) return path;
+  if (path === "dashboard") return "dashboard";
+  return "home";
+}
 
+const PAGE_KEYS = { d: "dashboard", a: "activities", n: "analytics", i: "insights", p: "profile", c: "coach", g: "goals" };
+const PAGE_LABELS = { dashboard: "Dashboard", activities: "Activities", analytics: "Analytics", insights: "Insights", profile: "Profile", coach: "AI Coach", goals: "Goals" };
 const SHORTCUTS = [
-  { key: "D", label: "Dashboard" },
-  { key: "A", label: "Activities" },
-  { key: "N", label: "Analytics" },
-  { key: "I", label: "Insights" },
-  { key: "P", label: "Profile" },
-  { key: "C", label: "AI Coach" },
-  { key: "G", label: "Goals" },
-  { key: "Esc", label: "Back / close" },
-  { key: "?",   label: "Show shortcuts" },
+  { key: "D", label: "Dashboard" }, { key: "A", label: "Activities" }, { key: "N", label: "Analytics" },
+  { key: "I", label: "Insights" },  { key: "P", label: "Profile" },    { key: "C", label: "AI Coach" },
+  { key: "G", label: "Goals" },     { key: "Esc", label: "Back / close" }, { key: "?", label: "Show shortcuts" },
 ];
 
 function ShortcutsPanel({ onClose }) {
@@ -87,10 +82,33 @@ function ShortcutsPanel({ onClose }) {
 function AppInner() {
   const { athlete, loading } = useAuth();
   const toast = useToast();
-  const [page, setPage]               = useState("dashboard");
+  const [page, setPage]               = useState(getInitialPage);
   const [selectedActivity, setSelect] = useState(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showShortcuts,  setShowShortcuts]  = useState(false);
+
+  // Sync URL for legal pages
+  const navigate = (id) => {
+    // "home" resolves to "dashboard" when authenticated, landing page otherwise
+    const resolved = (id === "home" && athlete) ? "dashboard" : id;
+    if (LEGAL_PAGES.includes(resolved)) {
+      window.history.pushState({}, "", `/${resolved}`);
+    } else {
+      window.history.pushState({}, "", "/");
+    }
+    setPage(resolved);
+    setSelect(null);
+  };
+
+  // Import/comingsoon are unauthenticated flows
+  const goUnauth = (id) => { window.history.pushState({}, "", "/"); setPage(id); setSelect(null); };
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const handler = () => setPage(getInitialPage());
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
 
   useEffect(() => {
     if (athlete && !localStorage.getItem("runlytics_onboarded")) {
@@ -109,8 +127,7 @@ function AppInner() {
       const tag = e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (!athlete) return;
-
+      if (!athlete || LEGAL_PAGES.includes(page)) return;
       if (e.key === "?") { setShowShortcuts((v) => !v); return; }
       if (e.key === "Escape") {
         if (showShortcuts)  { setShowShortcuts(false); return; }
@@ -119,11 +136,7 @@ function AppInner() {
         return;
       }
       const dest = PAGE_KEYS[e.key.toLowerCase()];
-      if (dest && dest !== page) {
-        setPage(dest);
-        setSelect(null);
-        toast(`→ ${PAGE_LABELS[dest]}`, "info", 1200);
-      }
+      if (dest && dest !== page) { setPage(dest); setSelect(null); toast(`→ ${PAGE_LABELS[dest]}`, "info", 1200); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -131,30 +144,42 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
         <div className="spinner" />
       </div>
     );
   }
 
-  if (!athlete) return <ConnectPage />;
+  // Pages accessible without auth
+  if (page === "privacy")    return <PrivacyPage    onNavigate={navigate} />;
+  if (page === "terms")      return <TermsPage      onNavigate={navigate} />;
+  if (page === "contact")    return <ContactPage    onNavigate={navigate} />;
+  if (page === "import")     return <ImportPage     onNavigate={(id) => { navigate(id); }} />;
+  if (page === "comingsoon") return <ComingSoonPage onNavigate={(id) => { navigate(id); }} />;
+
+  // Unauthenticated → landing page
+  if (!athlete) return <LandingPage onNavigate={(id) => {
+    if (id === "import" || id === "comingsoon") { goUnauth(id); }
+    else { navigate(id); }
+  }} />;
 
   const handleWorkoutClick = (activity) => { setSelect(activity); setPage("detail"); };
   const handleBack         = () => { setSelect(null); setPage("activities"); };
-  const navigate           = (id) => { setPage(id); setSelect(null); };
-
-  const currentPage = page === "detail" ? "activities" : page;
+  const appNavigate        = (id) => { setPage(id); setSelect(null); };
+  const currentPage        = page === "detail" ? "activities" : page;
 
   return (
     <>
       <WebhookPoller />
-      <Layout currentPage={currentPage} onNavigate={navigate}>
+      <Layout currentPage={currentPage} onNavigate={(id) => {
+        if (LEGAL_PAGES.includes(id)) { navigate(id); } else { appNavigate(id); }
+      }}>
         {page === "dashboard"  && <Dashboard      onWorkoutClick={handleWorkoutClick} />}
         {page === "activities" && <ActivitiesPage onWorkoutClick={handleWorkoutClick} />}
         {page === "detail"     && <WorkoutDetail  activity={selectedActivity} onBack={handleBack} />}
         {page === "analytics"  && <AnalyticsPage />}
         {page === "insights"   && <InsightsPage />}
-        {page === "profile"    && <ProfilePage />}
+        {page === "profile"    && <ProfilePage onNavigate={navigate} />}
         {page === "coach"      && <CoachPage />}
         {page === "goals"      && <GoalsPage />}
       </Layout>
@@ -175,10 +200,7 @@ export default function App() {
           </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
-      {/* Dev-only query inspector — hidden in production builds */}
-      {import.meta.env.DEV && (
-        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
-      )}
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />}
     </QueryClientProvider>
   );
 }

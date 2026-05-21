@@ -4,10 +4,191 @@ import { useActivities, useAthleteGear } from "../hooks/useActivities.js";
 import { useAnalyticsSummary } from "../hooks/useAnalytics.js";
 import { Card, CardHeader, Tag, ProgressBar, Spinner } from "../components/ui/index.jsx";
 import { fmtPace, fmtDateShort, calcPace } from "../utils/formatters.js";
-import { webhookApi } from "../services/api.js";
+import { webhookApi, authApi } from "../services/api.js";
 
 const SHOE_MAX_KM = 700;
 const BIKE_MAX_KM = 10000;
+
+function toLocalDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function ActivityHeatmap({ activities }) {
+  const { weeks, months, totalActive } = useMemo(() => {
+    const dateMap = {};
+    activities.forEach((a) => {
+      const d = a.start_date_local?.slice(0, 10);
+      if (d) dateMap[d] = (dateMap[d] || 0) + (a.distance / 1000);
+    });
+
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+
+    // Start from the Sunday ~52 weeks before today's Sunday
+    const start = new Date(today);
+    start.setDate(today.getDate() - today.getDay() - 51 * 7);
+
+    const allDays = [];
+    let active = 0;
+    const d = new Date(start);
+    while (d <= today) {
+      const s   = toLocalDate(d);
+      const km  = dateMap[s] || 0;
+      if (km > 0) active++;
+      allDays.push({ date: s, km, dow: d.getDay(), month: d.getMonth(), year: d.getFullYear() });
+      d.setDate(d.getDate() + 1);
+    }
+    // Pad the last partial week
+    const last = allDays[allDays.length - 1];
+    for (let i = last.dow + 1; i < 7; i++) {
+      allDays.push({ date: "", km: 0, dow: i, month: -1, year: 0, future: true });
+    }
+
+    // Group into week columns
+    const wks = [];
+    for (let i = 0; i < allDays.length; i += 7) wks.push(allDays.slice(i, i + 7));
+
+    // Month labels — one per first occurrence of each month at the start of a week
+    const mths = [];
+    let prevM = -1;
+    wks.forEach((week, wi) => {
+      const first = week[0];
+      if (first.month !== -1 && first.month !== prevM) {
+        mths.push({ wi, label: new Date(first.year, first.month, 1).toLocaleString("default", { month: "short" }) });
+        prevM = first.month;
+      }
+    });
+
+    return { weeks: wks, months: mths, totalActive: active };
+  }, [activities]);
+
+  const getColor = (km) => {
+    if (!km)    return "var(--surface)";
+    if (km < 3)  return "rgba(56,189,248,0.25)";
+    if (km < 8)  return "rgba(56,189,248,0.5)";
+    if (km < 15) return "rgba(56,189,248,0.75)";
+    return "var(--accent)";
+  };
+
+  const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+
+  return (
+    <Card style={{ marginBottom: 24 }} className="fade-up fade-up-1">
+      <CardHeader title="Activity Calendar" right={<Tag>{totalActive} active days · last 12 months</Tag>} />
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ display: "inline-flex", gap: 0, alignItems: "flex-start" }}>
+          {/* Day labels */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, paddingTop: 20, marginRight: 6 }}>
+            {DAY_LABELS.map((lbl, i) => (
+              <div key={i} style={{ height: 12, fontSize: 9, color: "var(--text3)", lineHeight: "12px", width: 12, visibility: i % 2 === 1 ? "hidden" : "visible" }}>
+                {lbl}
+              </div>
+            ))}
+          </div>
+
+          <div>
+            {/* Month label row */}
+            <div style={{ display: "flex", position: "relative", height: 16, marginBottom: 4 }}>
+              {months.map(({ wi, label }) => (
+                <div key={wi + label} style={{ position: "absolute", left: wi * 15, fontSize: 9, color: "var(--text3)", whiteSpace: "nowrap" }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            {/* Week columns */}
+            <div style={{ display: "flex", gap: 3 }}>
+              {weeks.map((week, wi) => (
+                <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {week.map((day, di) => (
+                    <div
+                      key={di}
+                      title={day.km > 0 ? `${day.date}: ${day.km.toFixed(1)} km` : day.date || ""}
+                      style={{
+                        width: 12, height: 12, borderRadius: 2,
+                        background: day.future ? "transparent" : getColor(day.km),
+                        transition: "transform 0.1s",
+                        cursor: day.km > 0 ? "default" : "default",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.4)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 12, justifyContent: "flex-end" }}>
+          <span style={{ fontSize: 9, color: "var(--text3)", marginRight: 4 }}>Less</span>
+          {[0, 2, 6, 12, 20].map((v, i) => (
+            <div key={i} style={{ width: 12, height: 12, borderRadius: 2, background: getColor(v) }} />
+          ))}
+          <span style={{ fontSize: 9, color: "var(--text3)", marginLeft: 4 }}>More</span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ── Training Settings (max HR personalisation) ────────────────────────────────
+function TrainingSettings() {
+  const stored = parseInt(localStorage.getItem("runlytics_maxHR") || "190", 10);
+  const [maxHR, setMaxHR] = useState(stored);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    const val = Math.max(100, Math.min(250, maxHR));
+    localStorage.setItem("runlytics_maxHR", String(val));
+    setMaxHR(val);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <Card style={{ marginBottom: 24 }} className="fade-up fade-up-2">
+      <CardHeader title="Training Settings" />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Max Heart Rate</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", lineHeight: 1.5 }}>
+            Used to calculate HR zones and TRIMP training load scores on the Insights page. Default: 190 bpm.
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="number"
+            min={100}
+            max={250}
+            value={maxHR}
+            onChange={(e) => setMaxHR(Number(e.target.value))}
+            style={{
+              width: 80, padding: "8px 12px", borderRadius: 8, fontSize: 16, fontWeight: 700,
+              background: "var(--surface)", border: "1px solid var(--border)",
+              color: "var(--text1)", textAlign: "center", outline: "none",
+            }}
+          />
+          <span style={{ fontSize: 12, color: "var(--text3)" }}>bpm</span>
+          <button
+            onClick={handleSave}
+            style={{
+              background: saved ? "var(--green)" : "var(--accent)", border: "none", borderRadius: 8,
+              color: "#0d1320", fontSize: 12, fontWeight: 700, padding: "9px 16px", cursor: "pointer",
+              transition: "background 0.2s",
+            }}
+          >
+            {saved ? "Saved ✓" : "Save"}
+          </button>
+        </div>
+      </div>
+      <div style={{ marginTop: 14, fontSize: 11, color: "var(--text3)" }}>
+        Tip: A common estimate is 220 − your age. Or use a measured max HR from a field test.
+      </div>
+    </Card>
+  );
+}
 
 // ── Strava Webhook management panel ──────────────────────────────────────────
 function WebhookPanel() {
@@ -146,8 +327,126 @@ function WebhookPanel() {
   );
 }
 
-export default function ProfilePage() {
-  const { athlete }                          = useAuth();
+// ── Data Management ───────────────────────────────────────────────────────────
+function DataManagement({ onNavigate }) {
+  const { logout, isImportMode } = useAuth();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting]           = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    if (isImportMode) {
+      await logout();
+      window.location.href = "/";
+      return;
+    }
+    try {
+      await authApi.logout();
+      localStorage.removeItem("runlytics_onboarded");
+      localStorage.removeItem("runlytics_maxHR");
+      window.location.href = "/";
+    } catch {
+      setDisconnecting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    if (isImportMode) {
+      localStorage.clear();
+      window.location.href = "/";
+      return;
+    }
+    try {
+      await authApi.deleteData();
+      localStorage.clear();
+      window.location.href = "/";
+    } catch {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
+  return (
+    <Card style={{ marginBottom: 24 }} className="fade-up fade-up-2">
+      <CardHeader title="Account & Data" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Disconnect */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>
+              {isImportMode ? "Sign Out" : "Disconnect Strava"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text3)", lineHeight: 1.5 }}>
+              {isImportMode
+                ? "Sign out of import mode. Your imported data stays in this browser until you clear it."
+                : "Sign out of Runlytics. Your cached data stays in our database until you delete it."}
+            </div>
+          </div>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", opacity: disconnecting ? 0.5 : 1 }}
+          >
+            {disconnecting ? "Signing out…" : "Disconnect"}
+          </button>
+        </div>
+
+        {/* Delete data */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "4px 0" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#ef4444", marginBottom: 2 }}>
+              {isImportMode ? "Clear All Data" : "Delete My Data"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text3)", lineHeight: 1.5 }}>
+              {isImportMode
+                ? "Clear all imported activities, goals, and settings from this browser. This cannot be undone."
+                : "Permanently delete all your data from Runlytics — athlete profile, activity cache, tokens, and goals. This cannot be undone."}
+            </div>
+          </div>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.5)", background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              Delete Data
+            </button>
+          ) : (
+            <div style={{ display: "flex", gap: 8, flexDirection: "column", alignItems: "flex-end" }}>
+              <div style={{ fontSize: 12, color: "#ef4444", fontWeight: 600, textAlign: "right" }}>Are you sure? This is permanent.</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setConfirmDelete(false)} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 12, cursor: "pointer" }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#ef4444", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: deleting ? 0.6 : 1 }}
+                >
+                  {deleting ? "Deleting…" : "Yes, delete everything"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ fontSize: 11, color: "var(--text3)", paddingTop: 4, lineHeight: 1.6 }}>
+          {!isImportMode && (
+            <>You can also revoke access from your{" "}
+            <a href="https://www.strava.com/settings/apps" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>Strava settings page</a>.{" "}</>
+          )}
+          Read our{" "}
+          <a href="/privacy" onClick={(e) => { e.preventDefault(); onNavigate?.("privacy"); }} style={{ color: "var(--accent)" }}>Privacy Policy</a>{" "}
+          for details on data handling.
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+export default function ProfilePage({ onNavigate }) {
+  const { athlete, isImportMode }            = useAuth();
   const { activities, loading: aLoading }    = useActivities({ per_page: 100 });
   const { data: summary, loading: sLoading } = useAnalyticsSummary();
   const { gear }                             = useAthleteGear();
@@ -285,6 +584,12 @@ export default function ProfilePage() {
         ))}
       </div>
 
+      {/* ── Activity Heatmap Calendar ─────────────────────────────────────── */}
+      <ActivityHeatmap activities={activities} />
+
+      {/* ── Training Settings ─────────────────────────────────────────────── */}
+      <TrainingSettings />
+
       {/* ── Gear Tracking ─────────────────────────────────────────────────── */}
       {allGear.length > 0 && (
         <Card style={{ marginBottom: 24 }} className="fade-up fade-up-2">
@@ -324,8 +629,11 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      {/* ── Strava Webhooks ──────────────────────────────────────────────── */}
-      <WebhookPanel />
+      {/* ── Data Management ──────────────────────────────────────────────── */}
+      <DataManagement onNavigate={onNavigate} />
+
+      {/* ── Strava Webhooks — hidden in import mode ───────────────────────── */}
+      {!isImportMode && <WebhookPanel />}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }} className="fade-up fade-up-2">
         {/* Personal Records */}

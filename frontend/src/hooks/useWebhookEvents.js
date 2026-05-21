@@ -14,12 +14,13 @@ const POLL_MS = 30_000;
  *
  * Mount inside an auth-gated component only (the /events endpoint is protected).
  */
-export function useWebhookEvents() {
+export function useWebhookEvents(enabled = true) {
   const toast       = useToast();
   const queryClient = useQueryClient();
   const timerRef    = useRef(null);
 
   useEffect(() => {
+    if (!enabled) return;
     const poll = async () => {
       try {
         const { data } = await webhookApi.getEvents();
@@ -48,5 +49,5 @@ export function useWebhookEvents() {
 
     timerRef.current = setInterval(poll, POLL_MS);
     return () => clearInterval(timerRef.current);
-  }, [toast, queryClient]);
+  }, [toast, queryClient, enabled]);
 }
