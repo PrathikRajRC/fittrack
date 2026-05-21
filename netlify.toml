@@ -6,6 +6,15 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Proxy /api/* to the Render backend — keeps all traffic same-origin so
+# mobile Safari ITP does not block the cross-site session cookie.
+# MUST come before the SPA fallback below.
+[[redirects]]
+  from   = "/api/*"
+  to     = "https://fittrack-v0fi.onrender.com/api/:splat"
+  status = 200
+  force  = true
+
 # SPA fallback — React Router handles all client-side routes
 [[redirects]]
   from   = "/*"
