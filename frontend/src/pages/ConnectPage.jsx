@@ -8,7 +8,7 @@ export default function ConnectPage() {
     <div className="connect-page">
       <div className="connect-card fade-up">
         <div className="connect-logo">⚡</div>
-        <div className="connect-title">FitTrack</div>
+        <div className="connect-title">Runlytics</div>
         <div className="connect-sub">
           Your personal fitness intelligence platform. Connect your training data
           and unlock deep performance insights.
@@ -29,7 +29,7 @@ export default function ConnectPage() {
         </div>
 
         <p style={{ marginTop: 20, fontSize: 11, color: "var(--text3)", lineHeight: 1.6 }}>
-          FitTrack only requests read-only access to your Strava data.
+          Runlytics only requests read-only access to your Strava data.
           We never post on your behalf.
         </p>
       </div>

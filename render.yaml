@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: fittrack-api
+    name: runlytics-api
     runtime: node
     rootDir: backend
     buildCommand: npm install && npx prisma generate && npx prisma migrate deploy

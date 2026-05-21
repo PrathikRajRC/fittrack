@@ -4,12 +4,12 @@ const ThemeCtx = createContext(null);
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(
-    () => localStorage.getItem("fittrack_theme") || "dark"
+    () => localStorage.getItem("runlytics_theme") || "dark"
   );
 
   useEffect(() => {
     document.body.classList.toggle("light", theme === "light");
-    localStorage.setItem("fittrack_theme", theme);
+    localStorage.setItem("runlytics_theme", theme);
   }, [theme]);
 
   const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));

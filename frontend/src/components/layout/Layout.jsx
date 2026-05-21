@@ -34,7 +34,7 @@ export default function Layout({ children, currentPage, onNavigate }) {
   };
 
   return (
-    <div className="fittrack-app">
+    <div className="runlytics-app">
       {/* Mobile overlay backdrop */}
       <div
         className={`sidebar-overlay ${mobileOpen ? "visible" : ""}`}
@@ -44,8 +44,8 @@ export default function Layout({ children, currentPage, onNavigate }) {
       {/* Sidebar */}
       <aside className={`sidebar ${collapsed ? "collapsed" : ""} ${mobileOpen ? "mobile-open" : ""}`}>
         <div className="sidebar-logo">
-          <div className="sidebar-logo-mark">FT</div>
-          {!collapsed && <div className="sidebar-logo-text">Fit<span>Track</span></div>}
+          <div className="sidebar-logo-mark">RL</div>
+          {!collapsed && <div className="sidebar-logo-text">Run<span>lytics</span></div>}
         </div>
 
         <nav className="sidebar-nav">
@@ -92,7 +92,7 @@ export default function Layout({ children, currentPage, onNavigate }) {
           </button>
 
           <div className="topbar-title">
-            {NAV.find((n) => n.id === currentPage)?.label ?? "FitTrack"}
+            {NAV.find((n) => n.id === currentPage)?.label ?? "Runlytics"}
           </div>
 
           {/* Theme toggle */}

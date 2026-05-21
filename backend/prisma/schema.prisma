@@ -1,4 +1,4 @@
-// FitTrack — Prisma schema
+// Runlytics — Prisma schema
 //
 // Default: SQLite (zero-setup, works immediately)
 // Switch to PostgreSQL: change provider to "postgresql" and update DATABASE_URL

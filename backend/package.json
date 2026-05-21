@@ -1,7 +1,7 @@
 {
-  "name": "@fittrack/backend",
+  "name": "@runlytics/backend",
   "version": "1.0.0",
-  "description": "FitTrack API server — Strava integration + analytics",
+  "description": "Runlytics API server — Strava integration + analytics",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

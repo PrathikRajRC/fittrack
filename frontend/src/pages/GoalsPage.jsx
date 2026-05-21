@@ -63,12 +63,12 @@ export default function GoalsPage() {
     migrated.current = true;
 
     try {
-      const stored = JSON.parse(localStorage.getItem("fittrack_goals") || "[]");
+      const stored = JSON.parse(localStorage.getItem("runlytics_goals") || "[]");
       if (stored.length === 0) return;
 
       // Only migrate if DB is empty for this athlete (avoid duplicates on refresh)
       if (goals.length > 0) {
-        localStorage.removeItem("fittrack_goals");
+        localStorage.removeItem("runlytics_goals");
         return;
       }
 
@@ -233,7 +233,7 @@ export default function GoalsPage() {
             No goals yet
           </div>
           <div style={{ fontSize: 13, color: "var(--text3)", maxWidth: 320, margin: "0 auto 24px", lineHeight: 1.6 }}>
-            Set a training goal and FitTrack will automatically track your progress using your Strava data.
+            Set a training goal and Runlytics will automatically track your progress using your Strava data.
           </div>
           <button
             onClick={() => { setShowForm(true); setFormErr(""); }}

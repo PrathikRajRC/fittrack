@@ -25,8 +25,8 @@ export function useActivities(params = {}) {
   useEffect(() => {
     const handler = () =>
       queryClient.invalidateQueries({ queryKey: activityKeys.all() });
-    window.addEventListener("fittrack:new-activities", handler);
-    return () => window.removeEventListener("fittrack:new-activities", handler);
+    window.addEventListener("runlytics:new-activities", handler);
+    return () => window.removeEventListener("runlytics:new-activities", handler);
   }, [queryClient]);
 
   return { activities, loading, isFetching, error, refetch };

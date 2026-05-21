@@ -90,7 +90,7 @@ app.use(errorHandler);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n⚡ FitTrack API running on http://localhost:${PORT}`);
+  console.log(`\n⚡ Runlytics API running on http://localhost:${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`   Health: http://localhost:${PORT}/api/health\n`);
 });

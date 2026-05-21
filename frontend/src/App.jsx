@@ -93,14 +93,14 @@ function AppInner() {
   const [showShortcuts,  setShowShortcuts]  = useState(false);
 
   useEffect(() => {
-    if (athlete && !localStorage.getItem("fittrack_onboarded")) {
+    if (athlete && !localStorage.getItem("runlytics_onboarded")) {
       const t = setTimeout(() => setShowOnboarding(true), 600);
       return () => clearTimeout(t);
     }
   }, [athlete]);
 
   const handleOnboardingDone = () => {
-    localStorage.setItem("fittrack_onboarded", "1");
+    localStorage.setItem("runlytics_onboarded", "1");
     setShowOnboarding(false);
   };
 

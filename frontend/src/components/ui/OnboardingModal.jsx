@@ -3,7 +3,7 @@ import { useState } from "react";
 const STEPS = [
   {
     icon: "⚡",
-    title: "Welcome to FitTrack!",
+    title: "Welcome to Runlytics!",
     desc: "Your personal fitness intelligence platform. Let's take a 30-second tour so you know where everything is.",
   },
   {

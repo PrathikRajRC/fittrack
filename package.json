@@ -1,8 +1,8 @@
 {
-  "name": "fittrack",
+  "name": "runlytics",
   "version": "1.0.0",
   "private": true,
-  "description": "FitTrack — Personal Fitness Analytics Platform",
+  "description": "Runlytics — Personal Fitness Analytics Platform",
   "workspaces": [
     "frontend",
     "backend"

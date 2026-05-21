@@ -72,7 +72,7 @@ function WebhookPanel() {
           </div>
           <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>
             {active
-              ? `Strava will push new activities to FitTrack automatically.`
+              ? `Strava will push new activities to Runlytics automatically.`
               : "Activities only sync when you manually refresh. Enable webhooks for real-time sync."}
           </div>
         </div>
