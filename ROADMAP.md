@@ -40,12 +40,12 @@
 
 ## 🟣 Phase 4 — Social & Goals
 - [x] **Goals system** — set time/distance targets with auto-progress from Strava data (localStorage, GoalsPage.jsx)
-- [ ] **Milestones** — automatic celebration on PRs, distance achievements
+- [x] **Milestones** — auto-detect lifetime distance, activity count, long-run/ride PRs; toast on unlock; badge gallery on Profile
 - [ ] **Challenges** — monthly community challenges (e.g. "Run 100 km in January")
-- [ ] **Social sharing** — share workout cards as images to Instagram/Twitter
-- [ ] **Leaderboards** — compare against friends who also connect Strava
-- [ ] **Coaching dashboards** — coach can view athlete's data with their permission
-- [ ] **Streak system** — daily/weekly activity streak with longest-streak record
+- [x] **Social sharing** — downloadable PNG workout cards via html-to-image (Share button on WorkoutDetail)
+- [ ] **Leaderboards** — compare against friends who also connect Strava (needs multi-user)
+- [ ] **Coaching dashboards** — coach can view athlete's data with their permission (needs multi-user)
+- [x] **Streak system** — current + longest streaks, weekly streak, 30-day mini calendar (StreakCard on Dashboard)
 
 ---
 

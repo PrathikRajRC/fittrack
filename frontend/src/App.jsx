@@ -33,11 +33,19 @@ import CoachPage      from "./pages/CoachPage.jsx";
 import GoalsPage      from "./pages/GoalsPage.jsx";
 import OnboardingModal from "./components/ui/OnboardingModal.jsx";
 import { useWebhookEvents } from "./hooks/useWebhookEvents.js";
+import { useMilestones } from "./hooks/useMilestones.js";
+import { useActivities } from "./hooks/useActivities.js";
 import "./styles/components.css";
 
 function WebhookPoller() {
   const { isImportMode } = useAuth();
   useWebhookEvents(!isImportMode);
+  return null;
+}
+
+function MilestoneWatcher() {
+  const { activities } = useActivities({ per_page: 100 });
+  useMilestones(activities);
   return null;
 }
 
@@ -171,6 +179,7 @@ function AppInner() {
   return (
     <>
       <WebhookPoller />
+      <MilestoneWatcher />
       <Layout currentPage={currentPage} onNavigate={(id) => {
         if (LEGAL_PAGES.includes(id)) { navigate(id); } else { appNavigate(id); }
       }}>

@@ -5,9 +5,9 @@ import { useAnalyticsSummary } from "../hooks/useAnalytics.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { StatCard, Card, CardHeader, Tag, FilterChip, ProgressBar, Spinner, EmptyState } from "../components/ui/index.jsx";
 import WorkoutCard from "../components/ui/WorkoutCard.jsx";
+import StreakCard from "../components/ui/StreakCard.jsx";
 import { fmtDur, fmtPace, calcPace } from "../utils/formatters.js";
 import { groupByWeek } from "../utils/analytics.js";
-import { currentStreak } from "../utils/performance.js";
 
 function timeGreeting() {
   const h = new Date().getHours();
@@ -102,7 +102,6 @@ export default function Dashboard({ onWorkoutClick }) {
   const maxDayDist = Math.max(...dayBars.map((d) => d.dist), 1);
   const weekTotal  = dayBars.reduce((s, d) => s + d.dist, 0);
   const firstName  = athlete?.firstname || "Athlete";
-  const streak     = useMemo(() => currentStreak(activities), [activities]);
 
   if (aLoading || sLoading) return <Spinner />;
 
@@ -136,22 +135,16 @@ export default function Dashboard({ onWorkoutClick }) {
   return (
     <div className="page-content">
       {/* Welcome */}
-      <div className="fade-up" style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 13, color: "var(--text3)", marginBottom: 4 }}>{timeGreeting()},</div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800 }}>
-            {firstName} 👋
-          </div>
+      <div className="fade-up" style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 13, color: "var(--text3)", marginBottom: 4 }}>{timeGreeting()},</div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800 }}>
+          {firstName} 👋
         </div>
-        {streak > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,176,32,0.12)", border: "1px solid rgba(255,176,32,0.3)", borderRadius: 12, padding: "10px 16px" }}>
-            <span style={{ fontSize: 22 }}>🔥</span>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#ffb020", lineHeight: 1 }}>{streak} day{streak !== 1 ? "s" : ""}</div>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,176,32,0.7)" }}>Streak</div>
-            </div>
-          </div>
-        )}
+      </div>
+
+      {/* Streak card */}
+      <div className="fade-up fade-up-1" style={{ marginBottom: 24 }}>
+        <StreakCard activities={activities} />
       </div>
 
       {/* Stat cards */}

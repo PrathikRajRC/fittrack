@@ -164,23 +164,96 @@ export function weeklyZoneDistribution(activities, maxHR = 190) {
   return HR_ZONE_DEFS.map((z, i) => ({ ...z, minutes: Math.round(zoneMins[i]) }));
 }
 
-// ── Current activity streak ───────────────────────────────────────────────────
+// ── Activity streak helpers ──────────────────────────────────────────────────
+function toLocalDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function activeDateSet(activities) {
+  return new Set(activities.map((a) => a.start_date_local?.slice(0, 10)).filter(Boolean));
+}
+
 export function currentStreak(activities) {
-  const activeDates = new Set(
-    activities.map((a) => a.start_date_local.slice(0, 10))
-  );
-
-  const toLocal = (d) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
+  const activeDates = activeDateSet(activities);
   const today = new Date();
   today.setHours(12, 0, 0, 0);
 
-  let streak = 0;
+  // Allow today to be missed — count from yesterday so the streak doesn't break before end-of-day
   const d = new Date(today);
-  while (activeDates.has(toLocal(d))) {
+  if (!activeDates.has(toLocalDate(d))) d.setDate(d.getDate() - 1);
+
+  let streak = 0;
+  while (activeDates.has(toLocalDate(d))) {
     streak++;
     d.setDate(d.getDate() - 1);
   }
   return streak;
+}
+
+export function longestStreak(activities) {
+  const activeDates = activeDateSet(activities);
+  if (activeDates.size === 0) return 0;
+
+  const sorted = [...activeDates].sort();
+  let best = 1, cur = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1] + "T12:00:00");
+    const now  = new Date(sorted[i]     + "T12:00:00");
+    const diff = (now - prev) / (1000 * 60 * 60 * 24);
+    if (diff === 1) cur++;
+    else { if (cur > best) best = cur; cur = 1; }
+  }
+  return Math.max(best, cur);
+}
+
+// Consecutive weeks (most recent backwards) that contain at least one activity
+export function weeklyStreak(activities) {
+  const weeksWithActivity = new Set();
+  for (const a of activities) {
+    const d = new Date(a.start_date_local);
+    if (isNaN(d)) continue;
+    // Use ISO week year+week key
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    weeksWithActivity.add(toLocalDate(monday));
+  }
+
+  const today = new Date();
+  const thisMonday = new Date(today);
+  thisMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  thisMonday.setHours(12, 0, 0, 0);
+
+  let streak = 0;
+  const cursor = new Date(thisMonday);
+  if (!weeksWithActivity.has(toLocalDate(cursor))) cursor.setDate(cursor.getDate() - 7);
+  while (weeksWithActivity.has(toLocalDate(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 7);
+  }
+  return streak;
+}
+
+// Last N days with activity flags, oldest first
+export function recentDays(activities, n = 30) {
+  const activeDates = activeDateSet(activities);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+
+  const days = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = toLocalDate(d);
+    days.push({ date: key, active: activeDates.has(key), dow: d.getDay() });
+  }
+  return days;
+}
+
+export function streakStats(activities) {
+  return {
+    current: currentStreak(activities),
+    longest: longestStreak(activities),
+    weeks:   weeklyStreak(activities),
+    last30:  recentDays(activities, 30),
+  };
 }

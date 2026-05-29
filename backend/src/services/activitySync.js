@@ -44,7 +44,6 @@ export async function syncActivities(session, athleteId) {
     create: { athleteId, totalSynced: activities.length },
   });
 
-  console.log(`[sync] athlete=${athleteId} synced=${activities.length} first=${isFirstSync}`);
 }
 
 // ── Single-activity upsert (called from webhook handler) ─────────────────────

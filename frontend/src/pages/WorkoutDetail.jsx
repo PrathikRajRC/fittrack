@@ -6,6 +6,7 @@ import {
 import { actIcon, actClass, fmtDist, fmtDur, fmtPace, fmtDate, calcPace } from "../utils/formatters.js";
 import { Card, CardHeader, Tag, Spinner } from "../components/ui/index.jsx";
 import RouteMap from "../components/ui/RouteMap.jsx";
+import ShareCard from "../components/ui/ShareCard.jsx";
 import { useActivity, useActivityStreams } from "../hooks/useActivities.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -138,6 +139,7 @@ export default function WorkoutDetail({ activity: listActivity, onBack }) {
   const { streams }                                   = useActivityStreams(listActivity?.id);
   const activity = detail || listActivity;
   const pace     = calcPace(activity ?? {});
+  const [shareOpen, setShareOpen] = useState(false);
 
   // ── Stream data ────────────────────────────────────────────────────────────
   const hrRaw      = streams?.heartrate?.data;
@@ -228,13 +230,22 @@ export default function WorkoutDetail({ activity: listActivity, onBack }) {
     <div className="page-content">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }} className="fade-up print-hide">
         <div className="back-btn" style={{ margin: 0 }} onClick={onBack}>← Back to Activities</div>
-        <button
-          onClick={() => window.print()}
-          style={{ background: "none", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "var(--text2)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-        >
-          ⎙ Print Summary
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => setShareOpen(true)}
+            style={{ background: "none", border: "1px solid var(--accent)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "var(--accent)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}
+          >
+            ↗ Share
+          </button>
+          <button
+            onClick={() => window.print()}
+            style={{ background: "none", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "var(--text2)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+          >
+            ⎙ Print Summary
+          </button>
+        </div>
       </div>
+      {shareOpen && <ShareCard activity={activity} onClose={() => setShareOpen(false)} />}
       {isImportMode && (
         <div style={{ fontSize: 12, color: "var(--text3)", background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
           <span>📁</span>

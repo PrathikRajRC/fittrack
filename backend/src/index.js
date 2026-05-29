@@ -12,6 +12,7 @@ import activitiesRoutes from "./routes/activities.js";
 import analyticsRoutes from "./routes/analytics.js";
 import coachRoutes    from "./routes/coach.js";
 import goalsRoutes    from "./routes/goals.js";
+import queryRoutes    from "./routes/query.js";
 import webhookRoutes  from "./routes/webhooks.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -25,7 +26,9 @@ app.set("trust proxy", 1);
 
 // ── Security & logging ──────────────────────────────────────────────────────
 app.use(helmet());
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+if (process.env.NODE_ENV === "production") {
+  app.use(morgan("combined"));
+}
 
 // ── CORS ────────────────────────────────────────────────────────────────────
 app.use(cors({
@@ -79,6 +82,7 @@ app.use("/api/activities", requireAuth, activitiesRoutes);
 app.use("/api/analytics", requireAuth, analyticsRoutes);
 app.use("/api/coach",    requireAuth, coachRoutes);
 app.use("/api/goals",    requireAuth, goalsRoutes);
+app.use("/api/query",    requireAuth, queryRoutes);
 
 // ── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

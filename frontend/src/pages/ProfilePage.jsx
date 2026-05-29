@@ -3,7 +3,9 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useActivities, useAthleteGear } from "../hooks/useActivities.js";
 import { useAnalyticsSummary } from "../hooks/useAnalytics.js";
 import { Card, CardHeader, Tag, ProgressBar, Spinner } from "../components/ui/index.jsx";
+import MilestoneBadges from "../components/ui/MilestoneBadges.jsx";
 import { fmtPace, fmtDateShort, calcPace } from "../utils/formatters.js";
+import { computeMilestones } from "../utils/milestones.js";
 import { webhookApi, authApi } from "../services/api.js";
 
 const SHOE_MAX_KM = 700;
@@ -455,6 +457,7 @@ export default function ProfilePage({ onNavigate }) {
     () => activities.filter((a) => a.type === "Run" && a.distance > 0),
     [activities]
   );
+  const milestones = useMemo(() => computeMilestones(activities), [activities]);
 
   const avgPace = runs.length ? runs.reduce((s, a) => s + calcPace(a), 0) / runs.length : 0;
   const longest = useMemo(
@@ -586,6 +589,9 @@ export default function ProfilePage({ onNavigate }) {
 
       {/* ── Activity Heatmap Calendar ─────────────────────────────────────── */}
       <ActivityHeatmap activities={activities} />
+
+      {/* ── Milestones ────────────────────────────────────────────────────── */}
+      <MilestoneBadges milestones={milestones} />
 
       {/* ── Training Settings ─────────────────────────────────────────────── */}
       <TrainingSettings />

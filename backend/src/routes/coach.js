@@ -1,5 +1,5 @@
 import { Router } from "express";
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { getActivities } from "../services/stravaService.js";
 
 const router = Router();
@@ -12,8 +12,8 @@ function fmtPaceStr(minPerKm) {
 
 router.post("/chat", async (req, res, next) => {
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(503).json({ error: "ANTHROPIC_API_KEY not configured in backend/.env" });
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(503).json({ error: "GROQ_API_KEY not configured in backend/.env" });
     }
 
     const { messages } = req.body;
@@ -21,7 +21,7 @@ router.post("/chat", async (req, res, next) => {
       return res.status(400).json({ error: "messages array is required" });
     }
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const activities = await getActivities(req.session, { per_page: 30 });
 
     const runs = activities.filter((a) => a.type === "Run" && a.distance > 0);
@@ -48,32 +48,38 @@ router.post("/chat", async (req, res, next) => {
       return `  • ${a.start_date_local.slice(0, 10)}: ${a.type} — ${km} km in ${min} min${paceNote}`;
     });
 
-    const systemPrompt = `You are an expert personal fitness coach. The athlete has connected their Strava account and you have access to their real training data. Analyse it carefully and give specific, data-driven advice.
+    const systemPrompt = `You are an expert personal fitness coach with access to the athlete's real Strava training data. Give thorough, specific, data-driven advice.
 
 ## Athlete training data (last 30 activities):
-- Total activities analysed: ${activities.length}
-- Total distance: ${totalKm} km
+- Total activities: ${activities.length}
+- Total distance: **${totalKm} km**
 - Activity breakdown: ${typeStr}
-${avgPace ? `- Average run pace: ${fmtPaceStr(avgPace)}` : ""}
+${avgPace ? `- Average run pace: **${fmtPaceStr(avgPace)}**` : ""}
 
 ## Recent workouts (newest first):
 ${recentLines.join("\n")}
 
-## Your coaching style:
-- Reference their specific numbers when giving advice
-- Be concise and actionable (keep responses under 250 words)
+## Response format rules (strictly follow):
+- Use **bold** for every specific number, pace, or distance you mention
+- Use markdown headings (##) to break long answers into sections
+- Use bullet points for lists of advice or observations
 - Use km for distance, min/km for pace
-- Be encouraging but honest — point out both strengths and areas to improve
-- If you spot patterns (training gaps, pace changes, overloading), mention them explicitly`;
+- Be specific — always reference the athlete's actual numbers, not generic advice
+- Be encouraging but honest — call out both strengths and areas to improve
+- Spot patterns: training gaps, pace drift, overloading, consistency streaks
+- Do not add a disclaimer or say "I'm an AI" — just coach`;
 
-    const response = await anthropic.messages.create({
-      model:      "claude-sonnet-4-6",
-      max_tokens: 900,
-      system:     systemPrompt,
-      messages:   messages.map((m) => ({ role: m.role, content: m.content })),
+    const response = await groq.chat.completions.create({
+      model:       "llama-3.3-70b-versatile",
+      max_tokens:  1400,
+      temperature: 0.7,
+      messages:   [
+        { role: "system", content: systemPrompt },
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
     });
 
-    res.json({ content: response.content[0].text });
+    res.json({ content: response.choices[0].message.content });
   } catch (err) {
     next(err);
   }

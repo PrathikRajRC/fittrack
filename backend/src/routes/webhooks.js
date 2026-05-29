@@ -37,7 +37,6 @@ router.get("/strava", (req, res) => {
   }
 
   if (mode === "subscribe" && verifyToken === expected) {
-    console.log("[webhook] Validation accepted — responding with challenge");
     return res.json({ "hub.challenge": challenge });
   }
 
@@ -51,7 +50,6 @@ router.post("/strava", (req, res) => {
   res.status(200).send("EVENT_RECEIVED");
 
   const event = req.body;
-  console.log("[webhook] Event received:", JSON.stringify(event));
 
   if (
     event.object_type === "activity" &&
@@ -116,7 +114,6 @@ router.post("/subscribe", requireAuth, async (req, res, next) => {
       verify_token:  verifyToken,
     });
 
-    console.log("[webhook] Subscription created:", data);
     res.json({ subscription: data });
   } catch (err) {
     if (err.response?.status === 422) {
@@ -138,7 +135,6 @@ router.delete("/unsubscribe/:id", requireAuth, async (req, res, next) => {
         client_secret: stravaConfig.clientSecret,
       },
     });
-    console.log("[webhook] Subscription deleted:", req.params.id);
     res.json({ success: true });
   } catch (err) {
     next(err);

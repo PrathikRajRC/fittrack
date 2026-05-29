@@ -44,6 +44,11 @@ export const coachApi = {
   chat: (messages) => api.post("/coach/chat", { messages }),
 };
 
+// ── Natural Language Query ────────────────────────────────────────────────────
+export const queryApi = {
+  ask: (question) => api.post("/query", { question }),
+};
+
 // ── Goals ─────────────────────────────────────────────────────────────────────
 export const goalsApi = {
   list:   ()   => api.get("/goals"),
