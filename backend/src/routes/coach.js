@@ -1,6 +1,7 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
 import { getActivities } from "../services/stravaService.js";
+import { syncActivities } from "../services/activitySync.js";
 
 const router = Router();
 
@@ -22,6 +23,13 @@ router.post("/chat", async (req, res, next) => {
     }
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    // Trigger an incremental sync so the AI sees the most recent activities.
+    // syncActivities is a no-op if the cache is fresh (<1 hour old).
+    try { await syncActivities(req.session, req.session.athlete.id); } catch (e) {
+      console.warn("[coach] sync warning:", e.message);
+    }
+
     const activities = await getActivities(req.session, { per_page: 30 });
 
     const runs = activities.filter((a) => a.type === "Run" && a.distance > 0);

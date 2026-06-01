@@ -1,6 +1,7 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
 import prisma from "../services/db.js";
+import { syncActivities } from "../services/activitySync.js";
 
 const router = Router();
 
@@ -22,6 +23,12 @@ router.post("/", async (req, res, next) => {
     }
 
     const athleteId = req.session.athlete.id;
+
+    // Ensure the DB has the latest activities before answering. syncActivities
+    // is a no-op if the cache is still fresh, so this is cheap on hot paths.
+    try { await syncActivities(req.session, athleteId); } catch (e) {
+      console.warn("[query] sync warning:", e.message);
+    }
 
     const rows = await prisma.activity.findMany({
       where:   { athleteId },
