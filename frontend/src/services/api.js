@@ -5,11 +5,15 @@ export const api = axios.create({
   withCredentials: true, // send session cookie
 });
 
-// Response interceptor — redirect to home on 401 (only for real sessions, not import mode)
+// Response interceptor — redirect to landing ONLY when the app session itself
+// expired (backend sends code: "SESSION_EXPIRED"). A downstream Strava 401/403
+// is surfaced as 502 by the backend and must NOT bounce the user to connect.
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const sessionExpired =
+      err.response?.status === 401 && err.response?.data?.code === "SESSION_EXPIRED";
+    if (sessionExpired) {
       const isImport = !!localStorage.getItem("runlytics_import_athlete");
       if (!isImport) window.location.href = "/";
     }
@@ -30,6 +34,7 @@ export const activitiesApi = {
   getById:    (id)         => api.get(`/activities/${id}`),
   getStreams:  (id, keys)  => api.get(`/activities/${id}/streams`, { params: { keys } }),
   getLaps:    (id)         => api.get(`/activities/${id}/laps`),
+  forceSync:  ()           => api.post("/activities/sync"),
 };
 
 // ── Analytics ────────────────────────────────────────────────────────────────

@@ -2,33 +2,44 @@
  * Activity sync service.
  *
  * Responsibilities:
- *  - Fetch activities from Strava and upsert into the local SQLite cache
+ *  - Fetch activities from Strava and upsert into the local Postgres cache
  *  - Serve cached activities to routes (avoiding repeated Strava API calls)
  *
  * Sync strategy:
  *  - First sync: full history (up to 1000 activities, 10 pages × 100)
- *  - Subsequent syncs: incremental — only activities newer than last sync
+ *  - Subsequent syncs: incremental — re-fetch a rolling recent window so newly
+ *    added or back-dated activities are always caught. Upserts are idempotent,
+ *    so overlap is harmless.
  *  - TTL: 1 hour. Older data triggers an incremental sync on next request.
+ *  - Pass { force: true } to bypass the TTL (manual refresh).
  *  - Manual / webhook: call syncOne(session, athleteId, activityId) for a single activity
  */
 
 import prisma from "./db.js";
 import { getActivities, getActivity } from "./stravaService.js";
 
-const SYNC_TTL_MS = 60 * 60 * 1000; // 1 hour
+const SYNC_TTL_MS = 60 * 60 * 1000;          // 1 hour
+// Always re-fetch this much recent history on an incremental sync. This makes
+// the sync robust against activities uploaded late or back-dated — they fall
+// inside the window and get upserted even if a previous sync ran past them.
+const INCREMENTAL_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 // ── Full / incremental sync ───────────────────────────────────────────────────
 
-export async function syncActivities(session, athleteId) {
+export async function syncActivities(session, athleteId, { force = false } = {}) {
   const status = await prisma.syncStatus.findUnique({ where: { athleteId } });
   const isFirstSync = !status;
   const stale = status && Date.now() - status.lastSyncAt.getTime() > SYNC_TTL_MS;
 
-  if (!isFirstSync && !stale) return; // Already fresh — nothing to do
+  if (!isFirstSync && !stale && !force) return; // Already fresh — nothing to do
 
   const activities = [];
   const maxPages   = isFirstSync ? 10 : 3;
-  const after      = isFirstSync ? undefined : Math.floor(status.lastSyncAt.getTime() / 1000);
+  // Incremental: look back a rolling window rather than from the last sync time,
+  // so recently-added activities are never permanently skipped.
+  const after = isFirstSync
+    ? undefined
+    : Math.floor((Date.now() - INCREMENTAL_LOOKBACK_MS) / 1000);
 
   for (let page = 1; page <= maxPages; page++) {
     const batch = await getActivities(session, { page, per_page: 100, after });
@@ -44,6 +55,7 @@ export async function syncActivities(session, athleteId) {
     create: { athleteId, totalSynced: activities.length },
   });
 
+  return activities.length;
 }
 
 // ── Single-activity upsert (called from webhook handler) ─────────────────────

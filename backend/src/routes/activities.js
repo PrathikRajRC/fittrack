@@ -22,9 +22,10 @@ router.get("/", async (req, res, next) => {
     };
 
     const cached = await hasActivities(athleteId);
+    const fresh  = req.query.fresh === "1"; // caller wants an awaited sync
 
-    if (cached) {
-      // Data exists — serve immediately, sync in background if stale
+    if (cached && !fresh) {
+      // Data exists — serve immediately, revalidate in the background if stale
       syncActivities(req.session, athleteId).catch((e) =>
         console.error("[activities] background sync error:", e.message)
       );
@@ -33,10 +34,10 @@ router.get("/", async (req, res, next) => {
       return res.json(activities);
     }
 
-    // First load — sync synchronously, then serve
-    await syncActivities(req.session, athleteId);
+    // First load OR explicit refresh — sync synchronously, then serve
+    await syncActivities(req.session, athleteId, { force: fresh });
     const activities = await getActivitiesFromDB(athleteId, params);
-    res.set("X-Cache", "miss");
+    res.set("X-Cache", fresh ? "revalidated" : "miss");
     res.json(activities);
   } catch (err) {
     next(err);

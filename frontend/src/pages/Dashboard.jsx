@@ -1,11 +1,14 @@
 import { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useActivities } from "../hooks/useActivities.js";
 import { useAnalyticsSummary } from "../hooks/useAnalytics.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useToast } from "../context/ToastContext.jsx";
 import { StatCard, Card, CardHeader, Tag, FilterChip, ProgressBar, Spinner, EmptyState } from "../components/ui/index.jsx";
 import WorkoutCard from "../components/ui/WorkoutCard.jsx";
 import StreakCard from "../components/ui/StreakCard.jsx";
+import { activitiesApi } from "../services/api.js";
 import { fmtDur, fmtPace, calcPace } from "../utils/formatters.js";
 import { groupByWeek } from "../utils/analytics.js";
 
@@ -24,10 +27,27 @@ const TOOLTIP_STYLE = {
 const TYPE_ICONS = { Run: "🏃", Ride: "🚴", Walk: "🚶", Hike: "⛰️", Swim: "🏊", Workout: "💪" };
 
 export default function Dashboard({ onWorkoutClick }) {
-  const { athlete } = useAuth();
+  const { athlete, isImportMode } = useAuth();
   const { activities, loading: aLoading } = useActivities({ per_page: 100 });
   const { data: summary, loading: sLoading } = useAnalyticsSummary();
   const [typeFilter, setTypeFilter] = useState("All");
+  const [syncing, setSyncing] = useState(false);
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  const handleSync = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const { data } = await activitiesApi.forceSync();
+      await queryClient.invalidateQueries();
+      toast?.(`Synced — ${data?.totalSynced ?? 0} activities up to date`, "success", 4000);
+    } catch (e) {
+      toast?.("Sync failed — check your Strava connection", "error", 4000);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Average pace across all runs
   const runs = activities.filter((a) => a.type === "Run");
@@ -135,12 +155,36 @@ export default function Dashboard({ onWorkoutClick }) {
   return (
     <div className="page-content">
       {/* Welcome */}
-      <div className="fade-up" style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, color: "var(--text3)", marginBottom: 4 }}>{timeGreeting()},</div>
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800 }}>
-          {firstName} 👋
+      <div className="fade-up" style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 13, color: "var(--text3)", marginBottom: 4 }}>{timeGreeting()},</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800 }}>
+            {firstName} 👋
+          </div>
         </div>
+        {!isImportMode && (
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              background: "var(--surface)", border: "1px solid var(--border2)",
+              borderRadius: 10, padding: "8px 16px",
+              color: syncing ? "var(--text3)" : "var(--text)",
+              fontSize: 12.5, fontWeight: 600, cursor: syncing ? "wait" : "pointer",
+              transition: "all 0.15s",
+            }}
+            title="Pull your latest activities from Strava"
+          >
+            <span style={{
+              display: "inline-block",
+              animation: syncing ? "dashSpin 0.8s linear infinite" : "none",
+            }}>🔄</span>
+            {syncing ? "Syncing…" : "Sync now"}
+          </button>
+        )}
       </div>
+      <style>{`@keyframes dashSpin { to { transform: rotate(360deg); } }`}</style>
 
       {/* Streak card */}
       <div className="fade-up fade-up-1" style={{ marginBottom: 24 }}>

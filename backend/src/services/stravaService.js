@@ -44,29 +44,62 @@ export async function refreshToken(refreshTok) {
   return data;
 }
 
+// Mark a refresh failure so callers can distinguish "Strava re-auth needed"
+// from "your app session expired".
+class StravaAuthError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "StravaAuthError";
+    this.stravaReauthRequired = true;
+    this.status = 502; // never 401 — that would look like an app-session failure
+  }
+}
+
+async function refreshIntoSession(session) {
+  try {
+    const refreshed = await refreshToken(session.tokens.refresh_token);
+    session.tokens = {
+      access_token:  refreshed.access_token,
+      refresh_token: refreshed.refresh_token,
+      expires_at:    refreshed.expires_at,
+    };
+    return refreshed.access_token;
+  } catch (err) {
+    throw new StravaAuthError("Failed to refresh Strava token — please reconnect Strava.");
+  }
+}
+
 /**
  * Make an authenticated Strava API call.
- * Automatically refreshes the token if expired.
+ * Proactively refreshes the token if expired, and retries once if Strava
+ * returns 401 (token revoked / clock skew) by forcing a fresh token.
  */
 export async function stravaRequest(session, path, params = {}) {
-  let { access_token, refresh_token, expires_at } = session.tokens;
+  let { access_token, expires_at } = session.tokens;
 
-  // Refresh if token expired (with 60s buffer)
+  // Proactive refresh if token expired (with 60s buffer)
   if (Date.now() / 1000 > expires_at - 60) {
-    const refreshed = await refreshToken(refresh_token);
-    session.tokens = {
-      access_token: refreshed.access_token,
-      refresh_token: refreshed.refresh_token,
-      expires_at: refreshed.expires_at,
-    };
-    access_token = refreshed.access_token;
+    access_token = await refreshIntoSession(session);
   }
 
-  const { data } = await stravaApi.get(path, {
-    headers: { Authorization: `Bearer ${access_token}` },
-    params,
-  });
-  return data;
+  try {
+    const { data } = await stravaApi.get(path, {
+      headers: { Authorization: `Bearer ${access_token}` },
+      params,
+    });
+    return data;
+  } catch (err) {
+    // Reactive refresh: token was rejected despite looking valid — refresh + retry once
+    if (err.response?.status === 401) {
+      const fresh = await refreshIntoSession(session);
+      const { data } = await stravaApi.get(path, {
+        headers: { Authorization: `Bearer ${fresh}` },
+        params,
+      });
+      return data;
+    }
+    throw err;
+  }
 }
 
 /**
