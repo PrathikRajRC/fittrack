@@ -1,0 +1,24 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "docker-compose.yml"
+      - ".github/workflows/docker.yml"
+
+# Verifies the Docker images build successfully. Doesn't push anywhere — wire
+# in a registry login + push step when you're ready to publish.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t runlytics-backend:ci ./backend
+
+      - name: Build frontend image
+        run: docker build -t runlytics-frontend:ci ./frontend

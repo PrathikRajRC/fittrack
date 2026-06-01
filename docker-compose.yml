@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       fittrack
+      POSTGRES_USER:     fittrack
+      POSTGRES_PASSWORD: fittrack
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test:    ["CMD-SHELL", "pg_isready -U fittrack"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL:      postgresql://fittrack:fittrack@postgres:5432/fittrack
+      REDIS_URL:         redis://redis:6379
+      PORT:              3001
+      NODE_ENV:          production
+      SESSION_SECRET:    ${SESSION_SECRET:-dev-secret-please-change}
+      FRONTEND_URL:      http://localhost
+      STRAVA_CLIENT_ID:     ${STRAVA_CLIENT_ID}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET}
+      STRAVA_REDIRECT_URI:  ${STRAVA_REDIRECT_URI:-http://localhost:3001/api/auth/callback}
+      ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY:-}
+      GROQ_API_KEY:         ${GROQ_API_KEY:-}
+      ENABLE_NIGHTLY_SYNC:  "true"
+    ports:
+      - "3001:3001"
+    command: sh -c "npx prisma migrate deploy && node src/index.js"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+  redis_data:

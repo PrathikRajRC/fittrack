@@ -17,6 +17,7 @@ import webhookRoutes  from "./routes/webhooks.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 import { requireAuth } from "./middleware/requireAuth.js";
+import { startScheduler } from "./services/scheduler.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -97,4 +98,8 @@ app.listen(PORT, () => {
   console.log(`\n⚡ Runlytics API running on http://localhost:${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`   Health: http://localhost:${PORT}/api/health\n`);
+
+  if (process.env.ENABLE_NIGHTLY_SYNC === "true") {
+    startScheduler();
+  }
 });

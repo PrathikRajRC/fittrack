@@ -61,17 +61,17 @@
 ---
 
 ## ⚙️ Technical Improvements
-- [ ] **PostgreSQL + Prisma** — persist synced activities, avoid re-fetching Strava on every page load
-- [ ] **Redis caching** — cache Strava API responses (15 min TTL) to avoid rate limits
-- [ ] **Background sync job** — nightly cron to pull new activities automatically
-- [ ] **Webhook support** — Strava webhooks for real-time activity push
-- [ ] **PWA** — offline support, home screen install, push notifications
-- [ ] **React Query** — server state management, caching, background refetch
-- [ ] **Unit + integration tests** — Vitest for frontend, Jest + Supertest for backend
-- [ ] **Docker Compose** — single command to spin up frontend + backend + DB + Redis
-- [ ] **CI/CD pipeline** — GitHub Actions: lint → test → build → deploy
-- [ ] **Multi-user support** — proper user accounts, not just session-based single user
-- [ ] **Stream data caching** — cache activity streams to avoid re-fetching on revisit
+- [x] **PostgreSQL + Prisma** — Neon-hosted Postgres with Prisma v5; reconnecting proxy in db.js handles auto-suspend
+- [x] **Redis caching** — `services/cache.js` wraps Strava API responses with 15-min TTL; graceful no-op when REDIS_URL unset
+- [x] **Background sync job** — node-cron nightly job in `services/scheduler.js` syncs all athletes' recent activities
+- [x] **Webhook support** — Strava webhooks with event validation, delivery handler, subscription management UI in Profile
+- [x] **PWA** — manifest.json + vite-plugin-pwa service worker; installable + offline shell
+- [x] **React Query** — @tanstack/react-query v5; all hooks; 5-min stale time, 30-min cache, window-focus refetch, devtools in dev
+- [x] **Unit + integration tests** — Vitest (frontend) + node:test/supertest (backend), starter suites in place
+- [x] **Docker Compose** — `docker-compose.yml` spins up backend + frontend + Postgres + Redis with one command
+- [x] **CI/CD pipeline** — GitHub Actions: lint + test on PR, build verification on push to main
+- [ ] **Multi-user support** — proper user accounts, not just session-based single user *(requires architectural rewrite — own session)*
+- [x] **Stream data caching** — ActivityStream Prisma model + service caches Strava streams JSON, avoiding refetch on revisit
 
 ---
 

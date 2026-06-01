@@ -83,3 +83,13 @@ model WebhookSubscription {
   verifyToken String
   createdAt   DateTime @default(now())
 }
+
+// ── Activity stream cache ─────────────────────────────────────────────────────
+// Caches Strava's stream data (heartrate, altitude, latlng, etc.) so we don't
+// re-fetch them every time a user opens a workout detail page.
+model ActivityStream {
+  activityId String   @id
+  keys       String   // CSV of stream keys cached in this row
+  data       String   // JSON-stringified streams object
+  updatedAt  DateTime @updatedAt
+}

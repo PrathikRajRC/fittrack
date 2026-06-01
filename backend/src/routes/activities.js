@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { getActivity, getActivityStreams, getActivityLaps } from "../services/stravaService.js";
+import { getActivity, getActivityLaps } from "../services/stravaService.js";
 import { syncActivities, getActivitiesFromDB, hasActivities, getSyncStatus } from "../services/activitySync.js";
+import { getStreamsCached } from "../services/streamCache.js";
 import prisma from "../services/db.js";
 
 const router = Router();
@@ -76,13 +77,13 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
-/** GET /api/activities/:id/streams */
+/** GET /api/activities/:id/streams — cached in Postgres for 7 days */
 router.get("/:id/streams", async (req, res, next) => {
   try {
     const keys = req.query.keys
       ? req.query.keys.split(",")
       : ["latlng", "heartrate", "altitude", "velocity_smooth"];
-    const streams = await getActivityStreams(req.session, req.params.id, keys);
+    const streams = await getStreamsCached(req.session, req.params.id, keys);
     res.json(streams);
   } catch (err) {
     next(err);
