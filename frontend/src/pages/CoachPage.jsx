@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { coachApi, queryApi } from "../services/api.js";
-import { useAuth } from "../context/AuthContext.jsx";
 
 const COACH_SUGGESTED = [
   "How does my training look this month?",
@@ -340,7 +339,6 @@ function UserMessage({ content }) {
 const IS_DEPLOYED = !import.meta.env.DEV;
 
 export default function CoachPage() {
-  const { isImportMode } = useAuth();
   const [mode,        setMode]       = useState("coach");
   const [messages,    setMessages]   = useState([]);
   const [input,       setInput]      = useState("");
@@ -404,18 +402,6 @@ export default function CoachPage() {
   };
 
   const clearChat = () => { setMessages([]); setApiError(false); setQueryResult(null); };
-
-  if (isImportMode) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "70vh", padding: 40, textAlign: "center" }}>
-        <div style={{ fontSize: 56, marginBottom: 20 }}>🤖</div>
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800, marginBottom: 10 }}>AI Coach needs Strava OAuth</div>
-        <div style={{ fontSize: 14, color: "var(--text2)", maxWidth: 420, lineHeight: 1.7 }}>
-          The AI Coach reads your live Strava activities to provide personalised coaching. This feature requires a direct Strava OAuth connection.
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>

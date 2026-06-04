@@ -1,7 +1,6 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
-import { getActivities } from "../services/stravaService.js";
-import { syncActivities } from "../services/activitySync.js";
+import { resolveUserActivities } from "../services/userActivities.js";
 
 const router = Router();
 
@@ -24,13 +23,8 @@ router.post("/chat", async (req, res, next) => {
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    // Trigger an incremental sync so the AI sees the most recent activities.
-    // syncActivities is a no-op if the cache is fresh (<1 hour old).
-    try { await syncActivities(req.session, req.session.athlete.id); } catch (e) {
-      console.warn("[coach] sync warning:", e.message);
-    }
-
-    const activities = await getActivities(req.session, { per_page: 30 });
+    // Works for both Strava-linked and import-backed accounts.
+    const activities = await resolveUserActivities(req, { limit: 30 });
 
     const runs = activities.filter((a) => a.type === "Run" && a.distance > 0);
     const totalKm = (activities.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(0);
@@ -56,7 +50,11 @@ router.post("/chat", async (req, res, next) => {
       return `  • ${a.start_date_local.slice(0, 10)}: ${a.type} — ${km} km in ${min} min${paceNote}`;
     });
 
-    const systemPrompt = `You are an expert personal fitness coach with access to the athlete's real Strava training data. Give thorough, specific, data-driven advice.
+    if (!activities.length) {
+      return res.json({ content: "I don't see any activity data on your account yet. Connect Strava or import your Strava export, then I can give you personalised coaching." });
+    }
+
+    const systemPrompt = `You are an expert personal fitness coach with access to the athlete's real training data. Give thorough, specific, data-driven advice.
 
 ## Athlete training data (last 30 activities):
 - Total activities: ${activities.length}

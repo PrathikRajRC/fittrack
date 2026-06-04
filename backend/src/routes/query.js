@@ -1,7 +1,6 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
-import prisma from "../services/db.js";
-import { syncActivities } from "../services/activitySync.js";
+import { resolveUserActivities } from "../services/userActivities.js";
 
 const router = Router();
 
@@ -22,20 +21,12 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ error: "question is required" });
     }
 
-    const athleteId = req.session.athlete.id;
+    // Works for both Strava-linked and import-backed accounts.
+    const activities = await resolveUserActivities(req);
 
-    // Ensure the DB has the latest activities before answering. syncActivities
-    // is a no-op if the cache is still fresh, so this is cheap on hot paths.
-    try { await syncActivities(req.session, athleteId); } catch (e) {
-      console.warn("[query] sync warning:", e.message);
+    if (!activities.length) {
+      return res.json({ answer: "There's no activity data on your account yet. Connect Strava or import your Strava export to ask questions about your training." });
     }
-
-    const rows = await prisma.activity.findMany({
-      where:   { athleteId },
-      orderBy: { startDate: "desc" },
-    });
-
-    const activities = rows.map((r) => JSON.parse(r.data));
 
     // Compact table: one line per activity — keeps token count low
     const table = activities.map((a) => {

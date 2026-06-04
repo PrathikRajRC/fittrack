@@ -91,9 +91,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/athlete",    requireAuth, requireStrava, athleteRoutes);
 app.use("/api/activities", requireAuth, requireStrava, activitiesRoutes);
 app.use("/api/analytics",  requireAuth, requireStrava, analyticsRoutes);
-app.use("/api/coach",      requireAuth, requireStrava, coachRoutes);
 app.use("/api/goals",      requireAuth, requireStrava, goalsRoutes);
-app.use("/api/query",      requireAuth, requireStrava, queryRoutes);
+// Coach + Query work from either Strava cache or imported data — account only.
+app.use("/api/coach",      requireAuth, coachRoutes);
+app.use("/api/query",      requireAuth, queryRoutes);
 // Import persistence only needs a logged-in account (no Strava required).
 app.use("/api/import",     requireAuth, importRoutes);
 
