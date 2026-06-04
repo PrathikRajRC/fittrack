@@ -54,6 +54,13 @@ export const queryApi = {
   ask: (question) => api.post("/query", { question }),
 };
 
+// ── Import persistence (saved Strava export, per account) ─────────────────────
+export const importApi = {
+  get:    ()                     => api.get("/import"),
+  save:   (athlete, activities)  => api.post("/import/save", { athlete, activities }),
+  remove: ()                     => api.delete("/import"),
+};
+
 // ── Goals ─────────────────────────────────────────────────────────────────────
 export const goalsApi = {
   list:   ()   => api.get("/goals"),
@@ -63,8 +70,13 @@ export const goalsApi = {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const authApi = {
-  logout:     () => api.post("/auth/logout"),
-  deleteData: () => api.delete("/auth/data"),
+  config:      ()                       => api.get("/auth/config"),
+  register:    (email, password, name) => api.post("/auth/register", { email, password, name }),
+  login:       (email, password)       => api.post("/auth/login", { email, password }),
+  me:          ()                       => api.get("/auth/me"),
+  logout:      ()                       => api.post("/auth/logout"),
+  unlinkStrava:()                       => api.post("/auth/strava/unlink"),
+  deleteData:  ()                       => api.delete("/auth/data"),
 };
 
 // ── Webhooks ──────────────────────────────────────────────────────────────────

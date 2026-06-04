@@ -162,7 +162,8 @@ export default function ImportPage({ onNavigate }) {
       const activities = await parseStravaExportZip(file, setProgressMsg);
       const athlete    = buildImportAthlete(activities);
 
-      setImportData(athlete, activities);
+      setProgressMsg("Saving to your account…");
+      await setImportData(athlete, activities); // persists to the account if signed in
       setImportCount(activities.length);
       setStage("success");
     } catch (err) {

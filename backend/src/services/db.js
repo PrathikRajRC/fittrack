@@ -8,7 +8,7 @@ const NEON_SHUTDOWN = /E57P01|terminating connection due to administrator comman
 
 let _client = new PrismaClient({ log: LOG });
 
-const MODELS = ["athlete", "athleteToken", "activity", "syncStatus", "goal", "webhookSubscription", "activityStream"];
+const MODELS = ["user", "importData", "athlete", "athleteToken", "activity", "syncStatus", "goal", "webhookSubscription", "activityStream"];
 
 function wrapModel(modelName) {
   return new Proxy({}, {

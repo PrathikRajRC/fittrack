@@ -331,10 +331,11 @@ function WebhookPanel() {
 
 // ── Data Management ───────────────────────────────────────────────────────────
 function DataManagement({ onNavigate }) {
-  const { logout, isImportMode } = useAuth();
+  const { logout, isImportMode, user } = useAuth();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting]           = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [unlinking, setUnlinking]         = useState(false);
 
   const handleDisconnect = async () => {
     setDisconnecting(true);
@@ -353,14 +354,26 @@ function DataManagement({ onNavigate }) {
     }
   };
 
+  const handleUnlinkStrava = async () => {
+    setUnlinking(true);
+    try {
+      await authApi.unlinkStrava();
+      window.location.href = "/";
+    } catch {
+      setUnlinking(false);
+    }
+  };
+
   const handleDelete = async () => {
     setDeleting(true);
-    if (isImportMode) {
+    // Pure local import (no account) → just clear the browser.
+    if (isImportMode && !user) {
       localStorage.clear();
       window.location.href = "/";
       return;
     }
     try {
+      // Logged in (incl. account-backed import) → delete the account + all data.
       await authApi.deleteData();
       localStorage.clear();
       window.location.href = "/";
@@ -374,16 +387,51 @@ function DataManagement({ onNavigate }) {
     <Card style={{ marginBottom: 24 }} className="fade-up fade-up-2">
       <CardHeader title="Account & Data" />
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {/* Disconnect */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>
-              {isImportMode ? "Sign Out" : "Disconnect Strava"}
+        {/* Account email */}
+        {!isImportMode && user && (
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "4px 0 12px", borderBottom: "1px solid var(--border)" }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+              background: "linear-gradient(135deg, var(--accent), var(--purple))",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 800, color: "#0d1320",
+            }}>
+              {(user.name || user.email || "?").slice(0, 1).toUpperCase()}
             </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{user.name || "Your account"}</div>
+              <div style={{ fontSize: 12, color: "var(--text3)", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Unlink Strava (account stays) */}
+        {!isImportMode && (
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Unlink Strava</div>
+              <div style={{ fontSize: 12, color: "var(--text3)", lineHeight: 1.5 }}>
+                Disconnect your Strava account but keep your Runlytics account. Removes the cached activities for this athlete.
+              </div>
+            </div>
+            <button
+              onClick={handleUnlinkStrava}
+              disabled={unlinking}
+              style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", opacity: unlinking ? 0.5 : 1 }}
+            >
+              {unlinking ? "Unlinking…" : "Unlink"}
+            </button>
+          </div>
+        )}
+
+        {/* Sign out */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Sign Out</div>
             <div style={{ fontSize: 12, color: "var(--text3)", lineHeight: 1.5 }}>
               {isImportMode
                 ? "Sign out of import mode. Your imported data stays in this browser until you clear it."
-                : "Sign out of Runlytics. Your cached data stays in our database until you delete it."}
+                : "Sign out of your account. Your data stays in our database until you delete it."}
             </div>
           </div>
           <button
@@ -391,7 +439,7 @@ function DataManagement({ onNavigate }) {
             disabled={disconnecting}
             style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", opacity: disconnecting ? 0.5 : 1 }}
           >
-            {disconnecting ? "Signing out…" : "Disconnect"}
+            {disconnecting ? "Signing out…" : "Sign out"}
           </button>
         </div>
 

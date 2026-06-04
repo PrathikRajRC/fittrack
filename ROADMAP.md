@@ -70,7 +70,7 @@
 - [x] **Unit + integration tests** — Vitest (frontend) + node:test/supertest (backend), starter suites in place
 - [x] **Docker Compose** — `docker-compose.yml` spins up backend + frontend + Postgres + Redis with one command
 - [x] **CI/CD pipeline** — GitHub Actions: lint + test on PR, build verification on push to main
-- [ ] **Multi-user support** — proper user accounts, not just session-based single user *(requires architectural rewrite — own session)*
+- [x] **Multi-user support** — email/password accounts (bcrypt) that link a Strava athlete 1:1; `User` model owns `Athlete`; requireAuth (userId) + requireStrava guards; AuthPage login/register + Connect-Strava gate; per-user data isolation via athleteId. *Run `prisma migrate` to apply the User table.*
 - [x] **Stream data caching** — ActivityStream Prisma model + service caches Strava streams JSON, avoiding refetch on revisit
 
 ---

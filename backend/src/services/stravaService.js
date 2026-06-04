@@ -1,5 +1,6 @@
 import axios from "axios";
 import { stravaConfig } from "../config/strava.js";
+import prisma from "./db.js";
 
 const stravaApi = axios.create({ baseURL: stravaConfig.apiBase });
 
@@ -63,6 +64,19 @@ async function refreshIntoSession(session) {
       refresh_token: refreshed.refresh_token,
       expires_at:    refreshed.expires_at,
     };
+    // Persist rotated tokens to the DB so a later re-login (or the nightly cron)
+    // picks up the fresh refresh token rather than a stale one. Best-effort.
+    const athleteId = session.athlete?.id;
+    if (athleteId) {
+      prisma.athleteToken.update({
+        where: { athleteId },
+        data: {
+          accessToken:  refreshed.access_token,
+          refreshToken: refreshed.refresh_token,
+          expiresAt:    refreshed.expires_at,
+        },
+      }).catch(() => { /* token row may not exist yet — ignore */ });
+    }
     return refreshed.access_token;
   } catch (err) {
     throw new StravaAuthError("Failed to refresh Strava token — please reconnect Strava.");

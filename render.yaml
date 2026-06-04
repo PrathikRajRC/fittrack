@@ -21,8 +21,16 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         sync: false   # https://runlytics.netlify.app
-      - key: ANTHROPIC_API_KEY
+      - key: GROQ_API_KEY
+        sync: false   # AI Coach + NL Query — https://console.groq.com
+      - key: GOOGLE_CLIENT_ID
+        sync: false   # optional — "Continue with Google"
+      - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false   # https://fittrack-v0fi.onrender.com/api/auth/google/callback
+      - key: ENABLE_NIGHTLY_SYNC
+        value: "true"
       - key: STRAVA_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: STRAVA_WEBHOOK_CALLBACK_URL

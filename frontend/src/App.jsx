@@ -18,6 +18,8 @@ const queryClient = new QueryClient({
 });
 
 import LandingPage    from "./pages/LandingPage.jsx";
+import AuthPage       from "./pages/AuthPage.jsx";
+import ConnectStravaGate from "./pages/ConnectStravaGate.jsx";
 import PrivacyPage    from "./pages/PrivacyPage.jsx";
 import TermsPage      from "./pages/TermsPage.jsx";
 import ContactPage    from "./pages/ContactPage.jsx";
@@ -58,10 +60,22 @@ function getInitialPage() {
     window.history.replaceState({}, "", "/");
     return "comingsoon";
   }
+  if (params.get("signin")) {
+    window.history.replaceState({}, "", "/");
+    return "auth";
+  }
   const path = window.location.pathname.replace(/^\//, "") || "home";
   if (LEGAL_PAGES.includes(path)) return path;
   if (path === "dashboard") return "dashboard";
   return "home";
+}
+
+// Read a Strava-link error passed back from the OAuth callback redirect.
+function getStravaError() {
+  const params = new URLSearchParams(window.location.search);
+  const err = params.get("error");
+  if (err) window.history.replaceState({}, "", "/");
+  return err;
 }
 
 const PAGE_KEYS = { d: "dashboard", a: "activities", n: "analytics", i: "insights", p: "profile", c: "coach", g: "goals" };
@@ -88,9 +102,10 @@ function ShortcutsPanel({ onClose }) {
 }
 
 function AppInner() {
-  const { athlete, loading } = useAuth();
+  const { user, athlete, stravaLinked, isImportMode, loading } = useAuth();
   const toast = useToast();
   const [page, setPage]               = useState(getInitialPage);
+  const [stravaError]                 = useState(getStravaError);
   const [selectedActivity, setSelect] = useState(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showShortcuts,  setShowShortcuts]  = useState(false);
@@ -165,16 +180,36 @@ function AppInner() {
   if (page === "import")     return <ImportPage     onNavigate={(id) => { navigate(id); }} />;
   if (page === "comingsoon") return <ComingSoonPage onNavigate={(id) => { navigate(id); }} />;
 
-  // Unauthenticated → landing page
-  if (!athlete) return <LandingPage onNavigate={(id) => {
-    if (id === "import" || id === "comingsoon") { goUnauth(id); }
-    else { navigate(id); }
-  }} />;
+  // Auth gating ────────────────────────────────────────────────────────────────
+  // 1. Not signed in (and not using local import) → landing or auth page.
+  if (!user && !isImportMode) {
+    if (page === "auth" || page === "auth-register") {
+      return <AuthPage
+        onNavigate={goUnauth}
+        initialMode={page === "auth-register" ? "register" : "login"}
+        initialError={stravaError ? "Couldn't connect Strava. Please try again." : ""}
+      />;
+    }
+    return <LandingPage onNavigate={(id) => {
+      if (["import", "comingsoon", "auth", "auth-register"].includes(id)) { goUnauth(id); }
+      else { navigate(id); }
+    }} />;
+  }
+
+  // 2. Signed in but no Strava connected yet → choose a data source.
+  if (user && !stravaLinked && !isImportMode) {
+    return <ConnectStravaGate error={stravaError} onNavigate={(id) => goUnauth(id)} />;
+  }
 
   const handleWorkoutClick = (activity) => { setSelect(activity); setPage("detail"); };
   const handleBack         = () => { setSelect(null); setPage("activities"); };
   const appNavigate        = (id) => { setPage(id); setSelect(null); };
-  const currentPage        = page === "detail" ? "activities" : page;
+
+  // We're past the auth gates, so any non-app page value (auth, home,
+  // auth-register, etc. left over from the sign-in flow) resolves to dashboard.
+  const APP_PAGES = ["dashboard", "activities", "detail", "analytics", "insights", "profile", "coach", "goals"];
+  const appPage   = APP_PAGES.includes(page) ? page : "dashboard";
+  const currentPage = appPage === "detail" ? "activities" : appPage;
 
   return (
     <>
@@ -183,14 +218,14 @@ function AppInner() {
       <Layout currentPage={currentPage} onNavigate={(id) => {
         if (LEGAL_PAGES.includes(id)) { navigate(id); } else { appNavigate(id); }
       }}>
-        {page === "dashboard"  && <Dashboard      onWorkoutClick={handleWorkoutClick} />}
-        {page === "activities" && <ActivitiesPage onWorkoutClick={handleWorkoutClick} />}
-        {page === "detail"     && <WorkoutDetail  activity={selectedActivity} onBack={handleBack} />}
-        {page === "analytics"  && <AnalyticsPage />}
-        {page === "insights"   && <InsightsPage />}
-        {page === "profile"    && <ProfilePage onNavigate={navigate} />}
-        {page === "coach"      && <CoachPage />}
-        {page === "goals"      && <GoalsPage />}
+        {appPage === "dashboard"  && <Dashboard      onWorkoutClick={handleWorkoutClick} />}
+        {appPage === "activities" && <ActivitiesPage onWorkoutClick={handleWorkoutClick} />}
+        {appPage === "detail"     && <WorkoutDetail  activity={selectedActivity} onBack={handleBack} />}
+        {appPage === "analytics"  && <AnalyticsPage />}
+        {appPage === "insights"   && <InsightsPage />}
+        {appPage === "profile"    && <ProfilePage onNavigate={navigate} />}
+        {appPage === "coach"      && <CoachPage />}
+        {appPage === "goals"      && <GoalsPage />}
       </Layout>
 
       {showOnboarding && <OnboardingModal onDone={handleOnboardingDone} />}

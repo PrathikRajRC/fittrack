@@ -13,13 +13,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── User (app account) ────────────────────────────────────────────────────────
+// Email/password account. Owns at most one linked Strava athlete.
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String?  // null for accounts created via Google (no password)
+  googleId     String?  @unique // Google "sub" — set for Google-linked accounts
+  name         String?
+  avatar       String?  // profile picture URL (from Google)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  athlete      Athlete?
+  importData   ImportData?
+}
+
+// ── Imported Strava-export data (per account) ─────────────────────────────────
+// Stores a user's locally-parsed Strava archive so it persists across logins
+// and devices. Kept as JSON blobs (matches the browser import-mode shape).
+model ImportData {
+  userId     Int      @id
+  athlete    String   // JSON of the synthetic import athlete
+  activities String   // JSON array of parsed activities
+  count      Int
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 // ── Athlete ───────────────────────────────────────────────────────────────────
 model Athlete {
   id        Int      @id   // Strava athlete ID
+  userId    Int?     @unique // linked app account (null until Strava is linked)
   data      String         // Full Strava athlete JSON
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  user       User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   token      AthleteToken?
   activities Activity[]
   goals      Goal[]

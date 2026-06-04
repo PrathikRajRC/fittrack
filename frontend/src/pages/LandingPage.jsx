@@ -50,8 +50,6 @@ const FEATURES = [
 
 export default function LandingPage({ onNavigate }) {
   const nav = (page) => (e) => { e.preventDefault(); onNavigate?.(page); };
-  const goImport      = () => onNavigate?.("import");
-  const goComingSoon  = () => onNavigate?.("comingsoon");
 
   return (
     <div className="landing-page">
@@ -62,6 +60,8 @@ export default function LandingPage({ onNavigate }) {
           <a href="/privacy" className="landing-nav-link" onClick={nav("privacy")}>Privacy</a>
           <a href="/terms"   className="landing-nav-link" onClick={nav("terms")}>Terms</a>
           <a href="/contact" className="landing-nav-link" onClick={nav("contact")}>Contact</a>
+          {/* Sign in stays visible on mobile (see .landing-nav-cta) */}
+          <button className="landing-nav-cta" onClick={nav("auth")}>Sign in</button>
         </div>
       </nav>
 
@@ -82,43 +82,14 @@ export default function LandingPage({ onNavigate }) {
             AI coaching, route visualization, and training intelligence — all in one place.
           </p>
 
-          {/* Two-option connect cards */}
-          <div className="connect-options">
-            {/* Option 1: Import (available now) */}
-            <button className="connect-option-card primary" onClick={goImport}>
-              <div className="connect-option-top">
-                <div className="connect-option-icon import-icon">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                  </svg>
-                </div>
-                <span className="connect-available-badge">Available Now</span>
-              </div>
-              <div className="connect-option-title">Import Strava Export</div>
-              <div className="connect-option-desc">
-                Download your full Strava archive and import instantly. No OAuth required.
-              </div>
-              <div className="connect-option-cta">Get started →</div>
+          {/* Primary auth CTAs */}
+          <div className="hero-cta-row">
+            <button className="hero-cta-primary" onClick={nav("auth-register")}>
+              Get Started — it's free
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
-
-            {/* Option 2: Connect Strava (coming soon for public) */}
-            <button className="connect-option-card" onClick={goComingSoon}>
-              <div className="connect-option-top">
-                <div className="connect-option-icon strava-icon">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="#fc4c02">
-                    <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066z"/>
-                    <path d="M11.691 0L8.616 6.021H3.27l8.421 16.629 2.09-4.121-5.353-10.574h3.065L15.387 0z" opacity=".55"/>
-                  </svg>
-                </div>
-                <span className="connect-soon-badge">Coming Soon</span>
-              </div>
-              <div className="connect-option-title">Connect with Strava</div>
-              <div className="connect-option-desc">
-                Direct OAuth sync — real-time activity updates. Pending API approval.
-              </div>
-              <div className="connect-option-cta" style={{ color: "var(--text3)" }}>Learn more →</div>
+            <button className="hero-cta-secondary" onClick={nav("auth")}>
+              Sign in
             </button>
           </div>
 
@@ -157,7 +128,7 @@ export default function LandingPage({ onNavigate }) {
           Runlytics uses the official Strava API with read-only access. We never post, modify, or delete your Strava activities.
           Your data stays yours.
         </p>
-        <button className="btn-primary" onClick={goImport} style={{ marginTop: 24 }}>
+        <button className="btn-primary" onClick={nav("auth-register")} style={{ marginTop: 24 }}>
           Get Started Free
         </button>
       </section>

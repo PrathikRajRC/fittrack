@@ -13,11 +13,14 @@ import analyticsRoutes from "./routes/analytics.js";
 import coachRoutes    from "./routes/coach.js";
 import goalsRoutes    from "./routes/goals.js";
 import queryRoutes    from "./routes/query.js";
+import importRoutes   from "./routes/import.js";
 import webhookRoutes  from "./routes/webhooks.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 import { requireAuth } from "./middleware/requireAuth.js";
+import { requireStrava } from "./middleware/requireStrava.js";
 import { startScheduler } from "./services/scheduler.js";
+import { buildSessionStore } from "./services/sessionStore.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,11 +41,16 @@ app.use(cors({
 }));
 
 // ── Body parsing ────────────────────────────────────────────────────────────
+// Import payloads (a full Strava archive) can be several MB — give that route a
+// higher limit. This parser runs first, so the default parser below skips it.
+app.use("/api/import", express.json({ limit: "50mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Session ─────────────────────────────────────────────────────────────────
+const sessionStore = buildSessionStore();
 app.use(session({
+  store:  sessionStore || undefined, // undefined → default MemoryStore (dev)
   secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
   resave: false,
   saveUninitialized: false,
@@ -78,12 +86,16 @@ app.get("/api/health", (req, res) => {
 app.use("/api/webhooks", webhookRoutes);
 
 app.use("/api/auth", authRoutes);
-app.use("/api/athlete", requireAuth, athleteRoutes);
-app.use("/api/activities", requireAuth, activitiesRoutes);
-app.use("/api/analytics", requireAuth, analyticsRoutes);
-app.use("/api/coach",    requireAuth, coachRoutes);
-app.use("/api/goals",    requireAuth, goalsRoutes);
-app.use("/api/query",    requireAuth, queryRoutes);
+// Strava-dependent routes require a logged-in account (requireAuth) AND a
+// linked Strava athlete (requireStrava).
+app.use("/api/athlete",    requireAuth, requireStrava, athleteRoutes);
+app.use("/api/activities", requireAuth, requireStrava, activitiesRoutes);
+app.use("/api/analytics",  requireAuth, requireStrava, analyticsRoutes);
+app.use("/api/coach",      requireAuth, requireStrava, coachRoutes);
+app.use("/api/goals",      requireAuth, requireStrava, goalsRoutes);
+app.use("/api/query",      requireAuth, requireStrava, queryRoutes);
+// Import persistence only needs a logged-in account (no Strava required).
+app.use("/api/import",     requireAuth, importRoutes);
 
 // ── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
